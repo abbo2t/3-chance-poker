@@ -97,7 +97,128 @@ export function evaluateThreeCardHand(cards: Card[]): ThreeCardHandEvaluation {
   return { rank: ThreeCardHandRank.HighCard };
 }
 
-// 5-card evaluation will be added in the next step.
-export function evaluateFiveCardHand(_cards: Card[]): FiveCardHandEvaluation {
-  throw new Error("5-card evaluation not implemented yet");
+function getRankCounts(cards: Card[]): Map<Rank, number> {
+  const counts = new Map<Rank, number>();
+  for (const card of cards) {
+    counts.set(card.rank, (counts.get(card.rank) ?? 0) + 1);
+  }
+  return counts;
+}
+
+function isFlushFive(cards: Card[]): boolean {
+  return cards.every((c) => c.suit === cards[0]?.suit);
+}
+
+function isStraightFive(cards: Card[]): boolean {
+  const ranks = cards
+    .map((c) => c.rank)
+    .slice()
+    .sort((a, b) => a - b);
+
+  // Reject duplicates for straight purposes.
+  for (let i = 1; i < ranks.length; i += 1) {
+    if (ranks[i] === ranks[i - 1]) {
+      return false;
+    }
+  }
+
+  // Normal consecutive pattern.
+  const isConsecutive = ranks.every((r, idx) => idx === 0 || r === ranks[0] + idx);
+  if (isConsecutive) {
+    return true;
+  }
+
+  // Wheel straight: A-2-3-4-5
+  const wheel = [Rank.Two, Rank.Three, Rank.Four, Rank.Five, Rank.Ace].sort(
+    (a, b) => a - b,
+  );
+  const isWheel = ranks.every((r, idx) => r === wheel[idx]);
+  if (isWheel) {
+    return true;
+  }
+
+  return false;
+}
+
+function isRoyalFlush(cards: Card[]): boolean {
+  if (!isFlushFive(cards)) return false;
+
+  const ranks = cards
+    .map((c) => c.rank)
+    .slice()
+    .sort((a, b) => a - b);
+  const royal = [Rank.Ten, Rank.Jack, Rank.Queen, Rank.King, Rank.Ace];
+  return royal.every((r, idx) => r === ranks[idx]);
+}
+
+export function evaluateFiveCardHand(cards: Card[]): FiveCardHandEvaluation {
+  if (cards.length !== 5) {
+    throw new Error("Five-card hand must contain exactly 5 cards");
+  }
+
+  const flush = isFlushFive(cards);
+  const straight = isStraightFive(cards);
+  const rankCounts = getRankCounts(cards);
+  const counts = Array.from(rankCounts.values()).sort((a, b) => b - a);
+
+  const hasFourOfAKind = counts[0] === 4;
+  const hasThreeOfAKind = counts[0] === 3;
+  const pairCount = counts.filter((c) => c === 2).length;
+  const isFullHouse = hasThreeOfAKind && pairCount === 1;
+
+  if (isRoyalFlush(cards)) {
+    return { rank: FiveCardHandPayoutRank.RoyalFlush };
+  }
+
+  if (flush && straight) {
+    return { rank: FiveCardHandPayoutRank.StraightFlush };
+  }
+
+  if (hasFourOfAKind) {
+    return { rank: FiveCardHandPayoutRank.FourOfAKind };
+  }
+
+  if (isFullHouse) {
+    return { rank: FiveCardHandPayoutRank.FullHouse };
+  }
+
+  if (flush) {
+    return { rank: FiveCardHandPayoutRank.Flush };
+  }
+
+  if (straight) {
+    return { rank: FiveCardHandPayoutRank.Straight };
+  }
+
+  if (hasThreeOfAKind) {
+    return { rank: FiveCardHandPayoutRank.ThreeOfAKind };
+  }
+
+  if (pairCount === 2) {
+    return { rank: FiveCardHandPayoutRank.TwoPair };
+  }
+
+  if (pairCount === 1) {
+    // Exactly one pair: check if it's Tens or better.
+    let pairRank: Rank | null = null;
+    for (const [rank, count] of rankCounts.entries()) {
+      if (count === 2) {
+        pairRank = rank;
+        break;
+      }
+    }
+
+    if (
+      pairRank !== null &&
+      (pairRank === Rank.Ten ||
+        pairRank === Rank.Jack ||
+        pairRank === Rank.Queen ||
+        pairRank === Rank.King ||
+        pairRank === Rank.Ace)
+    ) {
+      return { rank: FiveCardHandPayoutRank.PairTensOrBetter };
+    }
+  }
+
+  return { rank: FiveCardHandPayoutRank.AllOther };
 }
