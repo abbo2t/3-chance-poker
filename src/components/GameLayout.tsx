@@ -1,8 +1,14 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { playRound, type RoundResult } from "../lib/gameEngine";
+import {
+  dealRound,
+  resolveRoundFromCards,
+  type DealtRoundCards,
+  type RoundResult,
+} from "../lib/gameEngine";
 import type { Card } from "../lib/pokerTypes";
+import { CardRow, PlayingCard } from "./Card";
 
 type Phase = "betting" | "decision" | "resolved";
 
@@ -43,12 +49,10 @@ export function GameLayout() {
   const [firstShotBetInput, setFirstShotBetInput] = useState("5");
   const [fiveShotBetInput, setFiveShotBetInput] = useState("5");
   const [error, setError] = useState<string | null>(null);
-  const [dealtHoleCards, setDealtHoleCards] = useState<[Card, Card] | null>(
+  const [betsLocked, setBetsLocked] = useState(false);
+  const [currentCards, setCurrentCards] = useState<DealtRoundCards | null>(
     null,
   );
-  const [dealtCommunityCards, setDealtCommunityCards] = useState<
-    [Card, Card, Card] | null
-  >(null);
   const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
 
   const parsedFirstShotBet = useMemo(
@@ -60,11 +64,12 @@ export function GameLayout() {
     [fiveShotBetInput],
   );
 
-  const canDeal = phase === "betting";
+  const canRebetDeal = phase === "betting" || phase === "resolved";
   const canChooseDecision = phase === "decision";
   const hasResult = phase === "resolved" && roundResult !== null;
+  const dealButtonLabel = betsLocked ? "Re-bet & Deal" : "Bet & Deal";
 
-  function handleDeal() {
+  function handleRebetDeal() {
     setError(null);
     setRoundResult(null);
 
@@ -77,35 +82,30 @@ export function GameLayout() {
       return;
     }
 
-    // For now, we let the engine handle dealing when the player chooses
-    // Raise or Fold. Deal here simply advances the phase.
+    const cards = dealRound();
+    setCurrentCards(cards);
+    setBetsLocked(true);
     setPhase("decision");
   }
 
   function resolveRound(decision: "raise" | "fold") {
     setError(null);
+    if (!currentCards) {
+      setError("Deal cards before choosing to continue or fold.");
+      return;
+    }
     try {
-      const result = playRound({
+      const result = resolveRoundFromCards(currentCards, {
         firstShotBet: parsedFirstShotBet,
         fiveShotBet: parsedFiveShotBet,
         decision,
       });
       setRoundResult(result);
-      setDealtHoleCards(result.holeCards);
-      setDealtCommunityCards(result.communityCards);
       setPhase("resolved");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
       setError(message);
     }
-  }
-
-  function handleNewHand() {
-    setPhase("betting");
-    setError(null);
-    setRoundResult(null);
-    setDealtHoleCards(null);
-    setDealtCommunityCards(null);
   }
 
   return (
@@ -140,7 +140,7 @@ export function GameLayout() {
               value={firstShotBetInput}
               onChange={(e) => setFirstShotBetInput(e.target.value)}
               style={{ display: "block", marginTop: "0.25rem", width: "100%" }}
-              disabled={phase !== "betting"}
+              disabled={betsLocked}
             />
           </label>
           <label>
@@ -153,7 +153,7 @@ export function GameLayout() {
               value={fiveShotBetInput}
               onChange={(e) => setFiveShotBetInput(e.target.value)}
               style={{ display: "block", marginTop: "0.25rem", width: "100%" }}
-              disabled={phase !== "betting"}
+              disabled={betsLocked}
             />
           </label>
         </div>
@@ -161,15 +161,19 @@ export function GameLayout() {
         <div style={{ marginTop: "1.25rem" }}>
           <h3>Actions</h3>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button type="button" onClick={handleDeal} disabled={!canDeal}>
-              Deal
+            <button
+              type="button"
+              onClick={handleRebetDeal}
+              disabled={!canRebetDeal}
+            >
+              {dealButtonLabel}
             </button>
             <button
               type="button"
               onClick={() => resolveRound("raise")}
               disabled={!canChooseDecision}
             >
-              Raise
+              Call
             </button>
             <button
               type="button"
@@ -180,10 +184,16 @@ export function GameLayout() {
             </button>
             <button
               type="button"
-              onClick={handleNewHand}
-              disabled={phase === "betting"}
+              onClick={() => {
+                setBetsLocked(false);
+                setPhase("betting");
+                setCurrentCards(null);
+                setRoundResult(null);
+                setError(null);
+              }}
+              disabled={!betsLocked || phase === "decision"}
             >
-              New Hand
+              Clear Bets
             </button>
           </div>
           {error && (
@@ -205,19 +215,21 @@ export function GameLayout() {
         >
           <div>
             <h3>Player Hole Cards</h3>
-            <div aria-label="Player cards placeholder">
-              {dealtHoleCards
-                ? formatCards(dealtHoleCards)
-                : "[Deal to see cards]"}
-            </div>
+            {currentCards ? (
+              <CardRow cards={currentCards.holeCards} />
+            ) : (
+              <div aria-label="Player cards placeholder">[Deal to see cards]</div>
+            )}
           </div>
           <div>
             <h3>Community Cards</h3>
-            <div aria-label="Community cards placeholder">
-              {dealtCommunityCards
-                ? formatCards(dealtCommunityCards)
-                : "[Revealed after decision]"}
-            </div>
+            {currentCards && hasResult ? (
+              <CardRow cards={currentCards.communityCards} />
+            ) : (
+              <div aria-label="Community cards placeholder">
+                [Revealed after decision]
+              </div>
+            )}
           </div>
           <div>
             <h3>Shot Hands</h3>

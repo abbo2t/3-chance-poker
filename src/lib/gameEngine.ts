@@ -27,6 +27,11 @@ export const GRAND_SIERRA_CONFIG: GameConfig = {
   fiveShotPaytable: GRAND_SIERRA_FIVE_SHOT_PAYTABLE,
 };
 
+export interface DealtRoundCards {
+  holeCards: [Card, Card];
+  communityCards: [Card, Card, Card];
+}
+
 export interface ShotResult {
   hand: [Card, Card, Card];
   evaluation: {
@@ -53,10 +58,7 @@ export interface RoundOptions {
   decision: PlayerDecision;
   config?: GameConfig;
   rng?: () => number;
-  preDealt?: {
-    holeCards: [Card, Card];
-    communityCards: [Card, Card, Card];
-  };
+  preDealt?: DealtRoundCards;
 }
 
 export interface RoundResult {
@@ -88,35 +90,29 @@ function getFiveCardPayoutMultiplier(
   return entry?.payout ?? 0;
 }
 
-export function playRound(options: RoundOptions): RoundResult {
-  const {
-    firstShotBet,
-    fiveShotBet = 0,
-    decision,
-    config = GRAND_SIERRA_CONFIG,
-    rng = Math.random,
-    preDealt,
-  } = options;
+export function dealRound(rng: () => number = Math.random): DealtRoundCards {
+  const deck = shuffle(createDeck(), rng);
+  const [h1, h2, c1, c2, c3] = deck;
+  return {
+    holeCards: [h1, h2],
+    communityCards: [c1, c2, c3],
+  };
+}
 
-  if (firstShotBet <= 0) {
-    throw new Error("firstShotBet must be > 0");
-  }
-  if (fiveShotBet < 0) {
-    throw new Error("fiveShotBet cannot be negative");
-  }
+interface InternalRoundComputeOptions {
+  firstShotBet: number;
+  fiveShotBet: number;
+  decision: PlayerDecision;
+  config: GameConfig;
+}
 
-  let holeCards: [Card, Card];
-  let communityCards: [Card, Card, Card];
+function computeRoundFromCards(
+  cards: DealtRoundCards,
+  options: InternalRoundComputeOptions,
+): RoundResult {
+  const { firstShotBet, fiveShotBet, decision, config } = options;
 
-  if (preDealt) {
-    holeCards = preDealt.holeCards;
-    communityCards = preDealt.communityCards;
-  } else {
-    const deck = shuffle(createDeck(), rng);
-    const [h1, h2, c1, c2, c3] = deck;
-    holeCards = [h1, h2];
-    communityCards = [c1, c2, c3];
-  }
+  const { holeCards, communityCards } = cards;
 
   const [h1, h2] = holeCards;
   const [c1, c2, c3] = communityCards;
@@ -199,7 +195,8 @@ export function playRound(options: RoundOptions): RoundResult {
   };
 
   const totalBet = firstWager + secondWager + thirdWager + fiveShotBet;
-  const totalWinnings = firstWinnings + secondWinnings + thirdWinnings + fiveWinnings;
+  const totalWinnings =
+    firstWinnings + secondWinnings + thirdWinnings + fiveWinnings;
   const totalNet = totalWinnings - totalBet;
 
   return {
@@ -214,4 +211,60 @@ export function playRound(options: RoundOptions): RoundResult {
     totalWinnings,
     totalNet,
   };
+}
+
+export interface ResolveRoundOptions {
+  firstShotBet: number;
+  fiveShotBet?: number;
+  decision: PlayerDecision;
+  config?: GameConfig;
+}
+
+export function resolveRoundFromCards(
+  cards: DealtRoundCards,
+  options: ResolveRoundOptions,
+): RoundResult {
+  const { firstShotBet, decision, config = GRAND_SIERRA_CONFIG } = options;
+  const fiveShotBet = options.fiveShotBet ?? 0;
+
+  if (firstShotBet <= 0) {
+    throw new Error("firstShotBet must be > 0");
+  }
+  if (fiveShotBet < 0) {
+    throw new Error("fiveShotBet cannot be negative");
+  }
+
+  return computeRoundFromCards(cards, {
+    firstShotBet,
+    fiveShotBet,
+    decision,
+    config,
+  });
+}
+
+export function playRound(options: RoundOptions): RoundResult {
+  const {
+    firstShotBet,
+    fiveShotBet = 0,
+    decision,
+    config = GRAND_SIERRA_CONFIG,
+    rng = Math.random,
+    preDealt,
+  } = options;
+
+  if (firstShotBet <= 0) {
+    throw new Error("firstShotBet must be > 0");
+  }
+  if (fiveShotBet < 0) {
+    throw new Error("fiveShotBet cannot be negative");
+  }
+
+  const cards: DealtRoundCards = preDealt ?? dealRound(rng);
+
+  return computeRoundFromCards(cards, {
+    firstShotBet,
+    fiveShotBet,
+    decision,
+    config,
+  });
 }

@@ -124,4 +124,36 @@ describe("game engine - single round", () => {
     const expectedTotalBet = 5 + 5 + 5 + 0;
     expect(result.totalBet).toBe(expectedTotalBet);
   });
+
+  it("rejects invalid firstShotBet and fiveShotBet values", () => {
+    const holeCards: [Card, Card] = [
+      c(Rank.Ace, Suit.Spades),
+      c(Rank.King, Suit.Spades),
+    ];
+    const communityCards: [Card, Card, Card] = [
+      c(Rank.Queen, Suit.Spades),
+      c(Rank.Jack, Suit.Spades),
+      c(Rank.Ten, Suit.Spades),
+    ];
+
+    // firstShotBet must be > 0
+    expect(() =>
+      playRound({
+        firstShotBet: 0,
+        fiveShotBet: 0,
+        decision: "raise",
+        preDealt: { holeCards, communityCards },
+      }),
+    ).toThrow(/firstShotBet must be > 0/i);
+
+    // fiveShotBet cannot be negative
+    expect(() =>
+      playRound({
+        firstShotBet: 5,
+        fiveShotBet: -1,
+        decision: "raise",
+        preDealt: { holeCards, communityCards },
+      }),
+    ).toThrow(/fiveShotBet cannot be negative/i);
+  });
 });
