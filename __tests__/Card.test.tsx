@@ -8,7 +8,9 @@ const sampleCard: Card = { rank: 14, suit: "H" };
 describe("PlayingCard", () => {
   it("renders rank and suit for a face-up card", () => {
     render(<PlayingCard card={sampleCard} />);
-    expect(screen.getByLabelText(/ace of hearts/i)).toBeInTheDocument();
+    const el = screen.getByLabelText(/ace of hearts/i);
+    expect(el).toBeInTheDocument();
+    expect(el).toHaveClass("playing-card");
   });
 
   it("renders a facedown card when hidden", () => {

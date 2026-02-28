@@ -73,6 +73,7 @@ export function PlayingCard({ card, hidden, ariaLabel }: PlayingCardProps) {
     <div
       aria-label={label}
       role="img"
+      className="playing-card"
       style={{
         width: "3rem",
         height: "4.2rem",
@@ -91,7 +92,6 @@ export function PlayingCard({ card, hidden, ariaLabel }: PlayingCardProps) {
         fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
         fontSize: "0.75rem",
         transition: "transform 160ms ease-out, box-shadow 160ms ease-out",
-        transform: "translateY(0)",
       }}
     >
       {hidden ? (

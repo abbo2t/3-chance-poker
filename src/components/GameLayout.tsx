@@ -109,17 +109,8 @@ export function GameLayout() {
   }
 
   return (
-    <main
-      style={{
-        padding: "2rem",
-        fontFamily: "system-ui, sans-serif",
-        display: "grid",
-        gap: "1.5rem",
-        gridTemplateColumns: "minmax(0, 2fr) minmax(0, 3fr)",
-        alignItems: "flex-start",
-      }}
-    >
-      <header style={{ gridColumn: "1 / -1" }}>
+    <main className="game-layout">
+      <header className="game-header">
         <h1>3 Shot Poker Simulator</h1>
         <p style={{ maxWidth: "40rem" }}>
           Configure your bets, then play rounds of 3 Shot Poker using the
@@ -127,7 +118,7 @@ export function GameLayout() {
         </p>
       </header>
 
-      <section aria-label="Bet configuration">
+      <section aria-label="Bet configuration" className="game-panel">
         <h2>Bets</h2>
         <div style={{ display: "grid", gap: "0.75rem" }}>
           <label>
@@ -204,7 +195,7 @@ export function GameLayout() {
         </div>
       </section>
 
-      <section aria-label="Cards and results">
+      <section aria-label="Cards and results" className="game-panel">
         <h2>Cards &amp; Results</h2>
         <div
           style={{
@@ -274,13 +265,13 @@ export function GameLayout() {
         <div style={{ marginTop: "1.25rem" }}>
           <h3>Totals</h3>
           {hasResult ? (
-            <ul>
+            <ul className="game-totals-list">
               <li>Total Bet: {roundResult.totalBet}</li>
               <li>Total Winnings: {roundResult.totalWinnings}</li>
               <li>Net: {roundResult.totalNet}</li>
             </ul>
           ) : (
-            <ul>
+            <ul className="game-totals-list">
               <li>Total Bet: [amount]</li>
               <li>Total Winnings: [amount]</li>
               <li>Net: [amount]</li>
