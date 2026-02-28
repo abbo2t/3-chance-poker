@@ -1,8 +1,113 @@
 "use client";
 
-import React from "react";
+import React, { useMemo, useState } from "react";
+import { playRound, type RoundResult } from "../lib/gameEngine";
+import type { Card } from "../lib/pokerTypes";
+
+type Phase = "betting" | "decision" | "resolved";
+
+function formatCard(card: Card): string {
+  const rankMap: Record<number, string> = {
+    2: "2",
+    3: "3",
+    4: "4",
+    5: "5",
+    6: "6",
+    7: "7",
+    8: "8",
+    9: "9",
+    10: "T",
+    11: "J",
+    12: "Q",
+    13: "K",
+    14: "A",
+  };
+  const suitMap: Record<string, string> = {
+    C: "♣",
+    D: "♦",
+    H: "♥",
+    S: "♠",
+  };
+
+  const rank = rankMap[card.rank] ?? String(card.rank);
+  const suit = suitMap[card.suit] ?? card.suit;
+  return `${rank}${suit}`;
+}
+
+function formatCards(cards: Card[]): string {
+  return cards.map(formatCard).join(" ");
+}
 
 export function GameLayout() {
+  const [phase, setPhase] = useState<Phase>("betting");
+  const [firstShotBetInput, setFirstShotBetInput] = useState("5");
+  const [fiveShotBetInput, setFiveShotBetInput] = useState("5");
+  const [error, setError] = useState<string | null>(null);
+  const [dealtHoleCards, setDealtHoleCards] = useState<[Card, Card] | null>(
+    null,
+  );
+  const [dealtCommunityCards, setDealtCommunityCards] = useState<
+    [Card, Card, Card] | null
+  >(null);
+  const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
+
+  const parsedFirstShotBet = useMemo(
+    () => Number.parseInt(firstShotBetInput, 10) || 0,
+    [firstShotBetInput],
+  );
+  const parsedFiveShotBet = useMemo(
+    () => Number.parseInt(fiveShotBetInput, 10) || 0,
+    [fiveShotBetInput],
+  );
+
+  const canDeal = phase === "betting";
+  const canChooseDecision = phase === "decision";
+  const hasResult = phase === "resolved" && roundResult !== null;
+
+  function handleDeal() {
+    setError(null);
+    setRoundResult(null);
+
+    if (parsedFirstShotBet <= 0) {
+      setError("1st Shot bet must be at least 1.");
+      return;
+    }
+    if (parsedFiveShotBet < 0) {
+      setError("5 Shot bet cannot be negative.");
+      return;
+    }
+
+    // For now, we let the engine handle dealing when the player chooses
+    // Raise or Fold. Deal here simply advances the phase.
+    setPhase("decision");
+  }
+
+  function resolveRound(decision: "raise" | "fold") {
+    setError(null);
+    try {
+      const result = playRound({
+        firstShotBet: parsedFirstShotBet,
+        fiveShotBet: parsedFiveShotBet,
+        decision,
+      });
+      setRoundResult(result);
+      setDealtHoleCards(result.holeCards);
+      setDealtCommunityCards(result.communityCards);
+      setPhase("resolved");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Unknown error";
+      setError(message);
+    }
+  }
+
+  function handleNewHand() {
+    setPhase("betting");
+    setError(null);
+    setRoundResult(null);
+    setDealtHoleCards(null);
+    setDealtCommunityCards(null);
+  }
+
   return (
     <main
       style={{
@@ -13,13 +118,12 @@ export function GameLayout() {
         gridTemplateColumns: "minmax(0, 2fr) minmax(0, 3fr)",
         alignItems: "flex-start",
       }}
-   >
+    >
       <header style={{ gridColumn: "1 / -1" }}>
         <h1>3 Shot Poker Simulator</h1>
         <p style={{ maxWidth: "40rem" }}>
           Configure your bets, then play rounds of 3 Shot Poker using the
-          Grand Sierra pay tables. This screen is a wireframe for the final
-          interactive UI.
+          Grand Sierra pay tables.
         </p>
       </header>
 
@@ -33,9 +137,10 @@ export function GameLayout() {
               type="number"
               min={1}
               step={1}
-              defaultValue={5}
+              value={firstShotBetInput}
+              onChange={(e) => setFirstShotBetInput(e.target.value)}
               style={{ display: "block", marginTop: "0.25rem", width: "100%" }}
-              disabled
+              disabled={phase !== "betting"}
             />
           </label>
           <label>
@@ -45,9 +150,10 @@ export function GameLayout() {
               type="number"
               min={0}
               step={1}
-              defaultValue={5}
+              value={fiveShotBetInput}
+              onChange={(e) => setFiveShotBetInput(e.target.value)}
               style={{ display: "block", marginTop: "0.25rem", width: "100%" }}
-              disabled
+              disabled={phase !== "betting"}
             />
           </label>
         </div>
@@ -55,19 +161,36 @@ export function GameLayout() {
         <div style={{ marginTop: "1.25rem" }}>
           <h3>Actions</h3>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button type="button" disabled>
+            <button type="button" onClick={handleDeal} disabled={!canDeal}>
               Deal
             </button>
-            <button type="button" disabled>
+            <button
+              type="button"
+              onClick={() => resolveRound("raise")}
+              disabled={!canChooseDecision}
+            >
               Raise
             </button>
-            <button type="button" disabled>
+            <button
+              type="button"
+              onClick={() => resolveRound("fold")}
+              disabled={!canChooseDecision}
+            >
               Fold
             </button>
-            <button type="button" disabled>
+            <button
+              type="button"
+              onClick={handleNewHand}
+              disabled={phase === "betting"}
+            >
               New Hand
             </button>
           </div>
+          {error && (
+            <p style={{ color: "red", marginTop: "0.75rem" }} role="alert">
+              {error}
+            </p>
+          )}
         </div>
       </section>
 
@@ -82,33 +205,75 @@ export function GameLayout() {
         >
           <div>
             <h3>Player Hole Cards</h3>
-            <div aria-label="Player cards placeholder">[Player cards]</div>
+            <div aria-label="Player cards placeholder">
+              {dealtHoleCards
+                ? formatCards(dealtHoleCards)
+                : "[Deal to see cards]"}
+            </div>
           </div>
           <div>
             <h3>Community Cards</h3>
-            <div aria-label="Community cards placeholder">[Community cards]</div>
+            <div aria-label="Community cards placeholder">
+              {dealtCommunityCards
+                ? formatCards(dealtCommunityCards)
+                : "[Revealed after decision]"}
+            </div>
           </div>
           <div>
             <h3>Shot Hands</h3>
-            <ul>
-              <li>1st Shot: [cards &amp; result]</li>
-              <li>2nd Shot: [cards &amp; result]</li>
-              <li>3rd Shot: [cards &amp; result]</li>
-            </ul>
+            {hasResult ? (
+              <ul>
+                <li>
+                  1st Shot: {roundResult.firstShot.evaluation.rank} — Wager {" "}
+                  {roundResult.firstShot.wager}, Win {roundResult.firstShot.winnings}
+                </li>
+                <li>
+                  2nd Shot: {roundResult.secondShot.evaluation.rank} — Wager {" "}
+                  {roundResult.secondShot.wager}, Win {" "}
+                  {roundResult.secondShot.winnings}
+                </li>
+                <li>
+                  3rd Shot: {roundResult.thirdShot.evaluation.rank} — Wager {" "}
+                  {roundResult.thirdShot.wager}, Win {" "}
+                  {roundResult.thirdShot.winnings}
+                </li>
+              </ul>
+            ) : (
+              <ul>
+                <li>1st Shot: [cards &amp; result]</li>
+                <li>2nd Shot: [cards &amp; result]</li>
+                <li>3rd Shot: [cards &amp; result]</li>
+              </ul>
+            )}
           </div>
           <div>
             <h3>5 Shot Result</h3>
-            <div>[5-card hand &amp; payout]</div>
+            {hasResult && roundResult.fiveShot ? (
+              <div>
+                Rank {roundResult.fiveShot.evaluation.rank} — Wager {" "}
+                {roundResult.fiveShot.wager}, Win {roundResult.fiveShot.winnings}
+              </div>
+            ) : (
+              <div>[5-card hand &amp; payout]</div>
+            )}
           </div>
         </div>
 
         <div style={{ marginTop: "1.25rem" }}>
           <h3>Totals</h3>
-          <ul>
-            <li>Total Bet: [amount]</li>
-            <li>Total Winnings: [amount]</li>
-            <li>Net: [amount]</li>
-          </ul>
+          {hasResult ? (
+            <ul>
+              <li>Total Bet: {roundResult.totalBet}</li>
+              <li>Total Winnings: {roundResult.totalWinnings}</li>
+              <li>Net: {roundResult.totalNet}</li>
+            </ul>
+          ) : (
+            <ul>
+              <li>Total Bet: [amount]</li>
+              <li>Total Winnings: [amount]</li>
+              <li>Net: [amount]</li>
+            </ul>
+          )}
         </div>
       </section>
     </main>

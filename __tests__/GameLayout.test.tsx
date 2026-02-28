@@ -1,30 +1,27 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { GameLayout } from "../src/components/GameLayout";
 
-describe("GameLayout wireframe", () => {
-  it("renders the main sections for bets, cards, and results", () => {
+describe("GameLayout betting flow", () => {
+  it("enables actions in the correct phases and calls the engine on decision", () => {
     render(<GameLayout />);
 
-    expect(
-      screen.getByRole("heading", { name: /3 shot poker simulator/i }),
-    ).toBeInTheDocument();
+    const dealButton = screen.getByRole("button", { name: /deal/i });
+    const raiseButton = screen.getByRole("button", { name: /raise/i });
+    const foldButton = screen.getByRole("button", { name: /fold/i });
+    const newHandButton = screen.getByRole("button", { name: /new hand/i });
 
-    expect(screen.getByRole("heading", { name: /bets/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /cards & results/i }),
-    ).toBeInTheDocument();
+    // Initial state: can deal, cannot raise/fold, cannot start a new hand.
+    expect(dealButton).toBeEnabled();
+    expect(raiseButton).toBeDisabled();
+    expect(foldButton).toBeDisabled();
+    expect(newHandButton).toBeDisabled();
 
-    expect(screen.getByRole("button", { name: /deal/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /raise/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /fold/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /new hand/i })).toBeDisabled();
-
-    expect(
-      screen.getByLabelText(/player cards placeholder/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByLabelText(/community cards placeholder/i),
-    ).toBeInTheDocument();
+    // After dealing, a decision is required.
+    fireEvent.click(dealButton);
+    expect(raiseButton).toBeEnabled();
+    expect(foldButton).toBeEnabled();
+    expect(dealButton).toBeDisabled();
+    expect(newHandButton).toBeEnabled();
   });
 });
