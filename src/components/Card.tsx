@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Suit } from "../lib/pokerTypes";
 import type { Card as CardType } from "../lib/pokerTypes";
 
 interface PlayingCardProps {
@@ -159,7 +160,7 @@ export function CardRow({ cards, hiddenCount = 0 }: CardRowProps) {
         <PlayingCard
           // eslint-disable-next-line react/no-array-index-key
           key={`hidden-${index}`}
-          card={{ rank: 2, suit: "C" }}
+          card={{ rank: 2, suit: Suit.Clubs }}
           hidden
         />
       ))}
