@@ -7,34 +7,42 @@ describe("GameLayout betting flow", () => {
     render(<GameLayout />);
 
     const dealButton = screen.getByRole("button", { name: /bet & deal/i });
-    const callButton = screen.getByRole("button", { name: /call/i });
-    const foldButton = screen.getByRole("button", { name: /fold/i });
     const clearBetsButton = screen.getByRole("button", { name: /clear bets/i });
 
-    // Initial state: can deal, cannot call/fold, cannot clear bets.
+    // Call/Fold are not rendered during the betting phase.
+    expect(
+      screen.queryByRole("button", { name: /call/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /fold/i }),
+    ).not.toBeInTheDocument();
+
+    // Initial state: can deal, cannot clear bets.
     expect(dealButton).toBeEnabled();
-    expect(callButton).toBeDisabled();
-    expect(foldButton).toBeDisabled();
     expect(clearBetsButton).toBeDisabled();
 
-    // After dealing, a decision is required.
+    // After dealing, Deal and Clear Bets are hidden; Call and Fold appear.
     fireEvent.click(dealButton);
-    expect(callButton).toBeEnabled();
-    expect(foldButton).toBeEnabled();
-    expect(dealButton).toBeDisabled();
-    // Bets are locked during decision, so Clear Bets remains disabled.
-    expect(clearBetsButton).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: /bet & deal/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /clear bets/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /call/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /fold/i })).toBeEnabled();
   });
 
   it("prevents calling or folding before betting & dealing", () => {
     render(<GameLayout />);
 
-    const callButton = screen.getByRole("button", { name: /call/i });
-    const foldButton = screen.getByRole("button", { name: /fold/i });
-
-    // Before betting & dealing, calling or folding is prevented by disabling the buttons.
-    expect(callButton).toBeDisabled();
-    expect(foldButton).toBeDisabled();
+    // Call/Fold are not rendered outside of the decision phase.
+    expect(
+      screen.queryByRole("button", { name: /call/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /fold/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("updates the deal button label between Bet & Deal and Re-bet & Deal", () => {
@@ -58,15 +66,25 @@ describe("GameLayout betting flow", () => {
       name: /re-bet & deal/i,
     });
     expect(rebetDealButton).toBeEnabled();
-    expect(clearBetsButton).toBeEnabled();
+    expect(screen.getByRole("button", { name: /clear bets/i })).toBeEnabled();
+
+    // Call/Fold are hidden after resolution.
+    expect(
+      screen.queryByRole("button", { name: /call/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /fold/i }),
+    ).not.toBeInTheDocument();
 
     // Clearing bets unlocks them and restores the "Bet & Deal" label.
-    fireEvent.click(clearBetsButton);
+    fireEvent.click(screen.getByRole("button", { name: /clear bets/i }));
     const dealButtonAfterClear = screen.getByRole("button", {
       name: /bet & deal/i,
     });
     expect(dealButtonAfterClear).toBeEnabled();
-    expect(clearBetsButton).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /clear bets/i }),
+    ).toBeDisabled();
   });
 
   it("shows bet validation errors and does not advance when amounts are invalid", () => {
@@ -83,8 +101,12 @@ describe("GameLayout betting flow", () => {
       screen.getByText(/1st shot bet must be at least 1\./i),
     ).toBeInTheDocument();
 
-    // Still in betting phase: Call should remain disabled.
-    const callButton = screen.getByRole("button", { name: /call/i });
-    expect(callButton).toBeDisabled();
+    // Still in betting phase: Call/Fold should not be rendered.
+    expect(
+      screen.queryByRole("button", { name: /call/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /fold/i }),
+    ).not.toBeInTheDocument();
   });
 });
