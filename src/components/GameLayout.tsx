@@ -163,6 +163,7 @@ export function GameLayout() {
               type="button"
               onClick={() => resolveRound("raise")}
               disabled={!canChooseDecision}
+              style={{ backgroundColor: "green", color: "white" }}
             >
               Call
             </button>
@@ -170,6 +171,7 @@ export function GameLayout() {
               type="button"
               onClick={() => resolveRound("fold")}
               disabled={!canChooseDecision}
+              style={{ backgroundColor: "red", color: "white" }}
             >
               Fold
             </button>
