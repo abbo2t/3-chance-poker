@@ -149,52 +149,38 @@ export function GameLayout() {
           </label>
         </div>
 
-        <div style={{ marginTop: "1.25rem" }}>
-          <h3>Actions</h3>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={handleRebetDeal}
-              disabled={!canRebetDeal}
-            >
-              {dealButtonLabel}
-            </button>
-            <button
-              type="button"
-              onClick={() => resolveRound("raise")}
-              disabled={!canChooseDecision}
-              style={{ backgroundColor: "green", color: "white" }}
-            >
-              Call
-            </button>
-            <button
-              type="button"
-              onClick={() => resolveRound("fold")}
-              disabled={!canChooseDecision}
-              style={{ backgroundColor: "red", color: "white" }}
-            >
-              Fold
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setBetsLocked(false);
-                setPhase("betting");
-                setCurrentCards(null);
-                setRoundResult(null);
-                setError(null);
-              }}
-              disabled={!betsLocked || phase === "decision"}
-            >
-              Clear Bets
-            </button>
+        {!canChooseDecision && (
+          <div style={{ marginTop: "1.25rem" }}>
+            <h3>Actions</h3>
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={handleRebetDeal}
+                disabled={!canRebetDeal}
+              >
+                {dealButtonLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBetsLocked(false);
+                  setPhase("betting");
+                  setCurrentCards(null);
+                  setRoundResult(null);
+                  setError(null);
+                }}
+                disabled={!betsLocked}
+              >
+                Clear Bets
+              </button>
+            </div>
+            {error && (
+              <p style={{ color: "red", marginTop: "0.75rem" }} role="alert">
+                {error}
+              </p>
+            )}
           </div>
-          {error && (
-            <p style={{ color: "red", marginTop: "0.75rem" }} role="alert">
-              {error}
-            </p>
-          )}
-        </div>
+        )}
       </section>
 
       <section aria-label="Cards and results" className="game-panel">
@@ -215,13 +201,42 @@ export function GameLayout() {
             )}
           </div>
           <div>
-            <h3>Community Cards</h3>
-            {currentCards && hasResult ? (
-              <CardRow cards={currentCards.communityCards} />
+            {canChooseDecision ? (
+              <>
+                <h3>Actions</h3>
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={() => resolveRound("raise")}
+                    style={{ backgroundColor: "green", color: "white" }}
+                  >
+                    Call
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => resolveRound("fold")}
+                    style={{ backgroundColor: "red", color: "white" }}
+                  >
+                    Fold
+                  </button>
+                </div>
+                {error && (
+                  <p style={{ color: "red", marginTop: "0.75rem" }} role="alert">
+                    {error}
+                  </p>
+                )}
+              </>
             ) : (
-              <div aria-label="Community cards placeholder">
-                [Revealed after decision]
-              </div>
+              <>
+                <h3>Community Cards</h3>
+                {currentCards && hasResult ? (
+                  <CardRow cards={currentCards.communityCards} />
+                ) : (
+                  <div aria-label="Community cards placeholder">
+                    [Revealed after decision]
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div>
