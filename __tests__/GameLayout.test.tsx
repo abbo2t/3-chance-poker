@@ -6,7 +6,7 @@ describe("GameLayout betting flow", () => {
   it("enables actions in the correct phases and calls the engine on decision", () => {
     render(<GameLayout />);
 
-    const dealButton = screen.getByRole("button", { name: /bet & deal/i });
+    const dealButton = screen.getByRole("button", { name: /deal/i });
     const clearBetsButton = screen.getByRole("button", { name: /clear bets/i });
 
     // Call/Fold are not rendered during the betting phase.
@@ -24,7 +24,7 @@ describe("GameLayout betting flow", () => {
     // After dealing, Deal and Clear Bets are hidden; Call and Fold appear.
     fireEvent.click(dealButton);
     expect(
-      screen.queryByRole("button", { name: /bet & deal/i }),
+      screen.queryByRole("button", { name: /deal/i }),
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /clear bets/i }),
@@ -48,9 +48,9 @@ describe("GameLayout betting flow", () => {
   it("updates the deal button label between Bet & Deal and Re-bet & Deal", () => {
     render(<GameLayout />);
 
-    // Initially, bets are not locked, so we show "Bet & Deal".
+    // Initially, bets are not locked, so we show "Deal".
     const initialDealButton = screen.getByRole("button", {
-      name: /bet & deal/i,
+      name: /deal/i,
     });
     const clearBetsButton = screen.getByRole("button", { name: /clear bets/i });
     expect(initialDealButton).toBeEnabled();
@@ -61,9 +61,9 @@ describe("GameLayout betting flow", () => {
     const callButton = screen.getByRole("button", { name: /call/i });
     fireEvent.click(callButton);
 
-    // After resolution, bets are locked and the label switches to "Re-bet & Deal".
+    // After resolution, bets are locked and the label switches to "Re-bet Deal".
     const rebetDealButton = screen.getByRole("button", {
-      name: /re-bet & deal/i,
+      name: /re-bet deal/i,
     });
     expect(rebetDealButton).toBeEnabled();
     expect(screen.getByRole("button", { name: /clear bets/i })).toBeEnabled();
@@ -79,7 +79,7 @@ describe("GameLayout betting flow", () => {
     // Clearing bets unlocks them and restores the "Bet & Deal" label.
     fireEvent.click(screen.getByRole("button", { name: /clear bets/i }));
     const dealButtonAfterClear = screen.getByRole("button", {
-      name: /bet & deal/i,
+      name: /deal/i,
     });
     expect(dealButtonAfterClear).toBeEnabled();
     expect(
@@ -90,7 +90,7 @@ describe("GameLayout betting flow", () => {
   it("shows bet validation errors and does not advance when amounts are invalid", () => {
     render(<GameLayout />);
 
-    const dealButton = screen.getByRole("button", { name: /bet & deal/i });
+    const dealButton = screen.getByRole("button", { name: /deal/i });
     const firstShotInput = screen.getByLabelText(/1st shot bet/i);
 
     // Set 1st Shot bet to 0, which is invalid.

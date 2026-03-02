@@ -67,7 +67,7 @@ export function GameLayout() {
   const canRebetDeal = phase === "betting" || phase === "resolved";
   const canChooseDecision = phase === "decision";
   const hasResult = phase === "resolved" && roundResult !== null;
-  const dealButtonLabel = betsLocked ? "Re-bet & Deal" : "Bet & Deal";
+  const dealButtonLabel = betsLocked ? "Re-bet Deal" : "Deal";
 
   function handleRebetDeal() {
     setError(null);
@@ -148,98 +148,46 @@ export function GameLayout() {
             />
           </label>
         </div>
-
-        {!canChooseDecision && (
-          <div style={{ marginTop: "1.25rem" }}>
-            <h3>Actions</h3>
-            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-              <button
-                type="button"
-                onClick={handleRebetDeal}
-                disabled={!canRebetDeal}
-              >
-                {dealButtonLabel}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setBetsLocked(false);
-                  setPhase("betting");
-                  setCurrentCards(null);
-                  setRoundResult(null);
-                  setError(null);
-                }}
-                disabled={!betsLocked}
-              >
-                Clear Bets
-              </button>
-            </div>
-            {error && (
-              <p style={{ color: "red", marginTop: "0.75rem" }} role="alert">
-                {error}
-              </p>
-            )}
-          </div>
-        )}
       </section>
 
-      <section aria-label="Cards and results" className="game-panel">
-        <h2>Cards &amp; Results</h2>
-        <div
-          style={{
-            display: "grid",
-            gap: "1rem",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          }}
-        >
-          <div>
-            <h3>Player Hole Cards</h3>
+      <section aria-label="Cards and results" className="game-panel game-table">
+        <h2 className="sr-only">Cards &amp; Results</h2>
+
+        <div className="game-table-board">
+          {/* Top: community cards (3 Shot) */}
+          <div className="game-table-community">
+            {currentCards && hasResult ? (
+              <CardRow cards={currentCards.communityCards} />
+            ) : (
+              <CardRow cards={[]} hiddenCount={3} />
+            )}
+          </div>
+
+          {/* Middle: 5 Shot badge and shot markers */}
+          <div className="game-table-center">
+            <div className="five-shot-badge" aria-label="5 Shot">
+              <span className="five-shot-text">5 Shot</span>
+            </div>
+            <div className="shot-markers" aria-hidden="true">
+              <div className="shot-marker">3</div>
+              <div className="shot-marker">2</div>
+              <div className="shot-marker">1</div>
+            </div>
+          </div>
+
+          {/* Bottom: player hole cards */}
+          <div className="game-table-hole">
             {currentCards ? (
               <CardRow cards={currentCards.holeCards} />
             ) : (
-              <div aria-label="Player cards placeholder">[Deal to see cards]</div>
+              <CardRow cards={[]} hiddenCount={2} />
             )}
           </div>
-          <div>
-            {canChooseDecision ? (
-              <>
-                <h3>Actions</h3>
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    onClick={() => resolveRound("raise")}
-                    style={{ backgroundColor: "green", color: "white" }}
-                  >
-                    Call
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => resolveRound("fold")}
-                    style={{ backgroundColor: "red", color: "white" }}
-                  >
-                    Fold
-                  </button>
-                </div>
-                {error && (
-                  <p style={{ color: "red", marginTop: "0.75rem" }} role="alert">
-                    {error}
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <h3>Community Cards</h3>
-                {currentCards && hasResult ? (
-                  <CardRow cards={currentCards.communityCards} />
-                ) : (
-                  <div aria-label="Community cards placeholder">
-                    [Revealed after decision]
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-          <div>
+        </div>
+
+        {/* Right side / lower area: textual results */}
+        <div className="game-table-info">
+          <div className="game-table-info-column">
             <h3>Shot Hands</h3>
             {hasResult ? (
               <ul>
@@ -266,7 +214,7 @@ export function GameLayout() {
               </ul>
             )}
           </div>
-          <div>
+          <div className="game-table-info-column">
             <h3>5 Shot Result</h3>
             {hasResult && roundResult.fiveShot ? (
               <div>
@@ -276,23 +224,76 @@ export function GameLayout() {
             ) : (
               <div>[5-card hand &amp; payout]</div>
             )}
+
+            <div style={{ marginTop: "1rem" }}>
+              <h3>Totals</h3>
+              {hasResult ? (
+                <ul className="game-totals-list">
+                  <li>Total Bet: {roundResult.totalBet}</li>
+                  <li>Total Winnings: {roundResult.totalWinnings}</li>
+                  <li>Net: {roundResult.totalNet}</li>
+                </ul>
+              ) : (
+                <ul className="game-totals-list">
+                  <li>Total Bet: [amount]</li>
+                  <li>Total Winnings: [amount]</li>
+                  <li>Net: [amount]</li>
+                </ul>
+              )}
+            </div>
           </div>
         </div>
 
-        <div style={{ marginTop: "1.25rem" }}>
-          <h3>Totals</h3>
-          {hasResult ? (
-            <ul className="game-totals-list">
-              <li>Total Bet: {roundResult.totalBet}</li>
-              <li>Total Winnings: {roundResult.totalWinnings}</li>
-              <li>Net: {roundResult.totalNet}</li>
-            </ul>
+        {/* Bottom action bar, similar to the physical felt layout */}
+        <div className="game-table-actions">
+          {canChooseDecision ? (
+            <>
+              <button
+                type="button"
+                onClick={() => resolveRound("raise")}
+                className="game-table-button game-table-button-primary"
+              >
+                Call
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveRound("fold")}
+                className="game-table-button game-table-button-secondary"
+              >
+                Fold
+              </button>
+            </>
           ) : (
-            <ul className="game-totals-list">
-              <li>Total Bet: [amount]</li>
-              <li>Total Winnings: [amount]</li>
-              <li>Net: [amount]</li>
-            </ul>
+            <>
+              <button
+                type="button"
+                onClick={handleRebetDeal}
+                disabled={!canRebetDeal}
+                className="game-table-button game-table-button-primary"
+              >
+                {dealButtonLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBetsLocked(false);
+                  setPhase("betting");
+                  setCurrentCards(null);
+                  setRoundResult(null);
+                  setError(null);
+                }}
+                disabled={!betsLocked}
+                className="game-table-button game-table-button-secondary"
+              >
+                Clear Bets
+              </button>
+            </>
+          )}
+
+          {error && (
+            <p className="game-table-error" role="alert">
+              {error}
+            </p>
           )}
         </div>
       </section>

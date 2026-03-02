@@ -120,3 +120,149 @@ body {
     padding: 1.5rem 1.25rem 2.5rem;
   }
 }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Table-style layout for the main game area */
+.game-table {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.game-table-board {
+  position: relative;
+  padding: 1.25rem 1rem 1.5rem;
+  border-radius: 1.25rem;
+  background: radial-gradient(circle at top, #111827 0, #020617 60%, #020617 100%);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.game-table-community {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.game-table-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.five-shot-badge {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 999px;
+  border: 3px solid #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, #020617 0, #1e293b 55%, #020617 100%);
+  box-shadow: 0 0 0 2px #111827, 0 0 30px rgba(251, 191, 36, 0.4);
+}
+
+.five-shot-text {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.7rem;
+}
+
+.shot-markers {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.shot-marker {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 999px;
+  border: 2px solid rgba(148, 163, 184, 0.9);
+  background: radial-gradient(circle, #0b1120 0, #020617 75%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.game-table-hole {
+  display: flex;
+  justify-content: center;
+}
+
+.game-table-info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.game-table-info-column h3 {
+  margin-top: 0;
+}
+
+.game-table-actions {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.game-table-button {
+  min-width: 7rem;
+  border-radius: 999px;
+  border: 2px solid rgba(15, 23, 42, 0.9);
+  padding: 0.55rem 1.4rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.65);
+  transition: transform 120ms ease-out, box-shadow 120ms ease-out,
+    filter 80ms ease-out, opacity 80ms ease-out;
+}
+
+.game-table-button-primary {
+  background: radial-gradient(circle at 30% 0%, #1d4ed8 0, #2563eb 40%, #1e40af 100%);
+  color: #e5e7eb;
+}
+
+.game-table-button-secondary {
+  background: radial-gradient(circle at 30% 0%, #b91c1c 0, #dc2626 40%, #7f1d1d 100%);
+  color: #fee2e2;
+}
+
+.game-table-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  box-shadow: none;
+}
+
+.game-table-button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 9px 22px rgba(15, 23, 42, 0.9);
+  filter: brightness(1.08);
+}
+
+.game-table-error {
+  margin: 0.25rem 0 0;
+  color: #f97373;
+  font-size: 0.85rem;
+}
