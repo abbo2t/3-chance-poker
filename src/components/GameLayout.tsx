@@ -9,6 +9,7 @@ import {
 } from "../lib/gameEngine";
 import type { Card } from "../lib/pokerTypes";
 import { CardRow, PlayingCard } from "./Card";
+import { PullToRefresh } from "./PullToRefresh";
 
 type Phase = "betting" | "decision" | "resolved";
 
@@ -117,6 +118,7 @@ export function GameLayout() {
 
   return (
     <main className="game-layout">
+      <PullToRefresh />
       <header className="game-header">
         <h1>3 Shot Poker Simulator</h1>
         <p style={{ maxWidth: "40rem" }}>
