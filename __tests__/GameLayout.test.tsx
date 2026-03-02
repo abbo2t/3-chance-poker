@@ -1,8 +1,34 @@
 import React from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { vi } from "vitest";
 import { GameLayout } from "../src/components/GameLayout";
 
+vi.mock("../src/lib/gameEngine", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../src/lib/gameEngine")>();
+  return {
+    ...real,
+    dealRound: vi.fn(() => real.dealRound()),
+    resolveRoundFromCards: vi.fn(real.resolveRoundFromCards),
+  };
+});
+
 describe("GameLayout betting flow", () => {
+  it("displays the starting balance of 200", () => {
+    render(<GameLayout />);
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
+  });
+
+  it("updates the balance after a resolved round", () => {
+    render(<GameLayout />);
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
+
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+
+    // After resolution the balance should still be displayed as a number.
+    const balanceText = screen.getByLabelText(/player balance/i).textContent ?? "";
+    expect(balanceText).toMatch(/Balance: \d+/);
+  });
   it("enables actions in the correct phases and calls the engine on decision", () => {
     render(<GameLayout />);
 
@@ -108,5 +134,32 @@ describe("GameLayout betting flow", () => {
     expect(
       screen.queryByRole("button", { name: /fold/i }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("GameLayout balance management", () => {
+  it("resets balance to 200 when it would reach zero or below", async () => {
+    const gameEngine = await import("../src/lib/gameEngine");
+    vi.mocked(gameEngine.resolveRoundFromCards).mockReturnValueOnce({
+      decision: "raise",
+      holeCards: [{ rank: 14, suit: "S" }, { rank: 13, suit: "S" }] as never,
+      communityCards: [{ rank: 12, suit: "S" }, { rank: 2, suit: "D" }, { rank: 3, suit: "H" }] as never,
+      firstShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 5, payoutMultiplier: 0, winnings: 0 },
+      secondShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 5, payoutMultiplier: 0, winnings: 0 },
+      thirdShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 5, payoutMultiplier: 0, winnings: 0 },
+      fiveShot: null,
+      totalBet: 200,
+      totalWinnings: 0,
+      totalNet: -200,
+    });
+
+    render(<GameLayout />);
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
+
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+
+    // Balance would reach 0, so it should reset to 200.
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
   });
 });

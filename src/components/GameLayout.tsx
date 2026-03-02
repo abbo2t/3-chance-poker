@@ -44,6 +44,8 @@ function formatCards(cards: Card[]): string {
   return cards.map(formatCard).join(" ");
 }
 
+const STARTING_BALANCE = 200;
+
 export function GameLayout() {
   const [phase, setPhase] = useState<Phase>("betting");
   const [firstShotBetInput, setFirstShotBetInput] = useState("5");
@@ -54,6 +56,7 @@ export function GameLayout() {
     null,
   );
   const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
+  const [playerBalance, setPlayerBalance] = useState(STARTING_BALANCE);
 
   const parsedFirstShotBet = useMemo(
     () => Number.parseInt(firstShotBetInput, 10) || 0,
@@ -102,6 +105,10 @@ export function GameLayout() {
       });
       setRoundResult(result);
       setPhase("resolved");
+      setPlayerBalance((prev) => {
+        const updated = prev + result.totalNet;
+        return updated <= 0 ? STARTING_BALANCE : updated;
+      });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
       setError(message);
@@ -115,6 +122,9 @@ export function GameLayout() {
         <p style={{ maxWidth: "40rem" }}>
           Configure your bets, then play rounds of 3 Shot Poker using the
           Grand Sierra pay tables.
+        </p>
+        <p aria-label="Player balance">
+          Balance: <strong>{playerBalance}</strong>
         </p>
       </header>
 
