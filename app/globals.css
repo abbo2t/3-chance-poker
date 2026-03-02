@@ -26,6 +26,7 @@ body {
 .game-header {
   grid-column: 1 / -1;
   max-width: 56rem;
+  order: 3; /* Visually last; DOM order unchanged for a11y */
 }
 
 .game-header h1 {
@@ -43,6 +44,15 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.4);
   padding: 1.25rem 1.5rem;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.6);
+}
+
+/* Visual re-order of main sections: play area, then bets, then header. */
+.game-panel.game-table {
+  order: 1; /* Play area first visually */
+}
+
+.game-panel:not(.game-table) {
+  order: 2; /* Bets panel between play area and header */
 }
 
 .game-panel h2,
