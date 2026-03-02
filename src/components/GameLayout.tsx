@@ -110,6 +110,46 @@ export function GameLayout() {
 
   return (
     <main className="game-layout">
+      <header className="game-header">
+        <h1>3 Shot Poker Simulator</h1>
+        <p style={{ maxWidth: "40rem" }}>
+          Configure your bets, then play rounds of 3 Shot Poker using the
+          Grand Sierra pay tables.
+        </p>
+      </header>
+
+      <section aria-label="Bet configuration" className="game-panel">
+        <h2>Bets</h2>
+        <div style={{ display: "grid", gap: "0.75rem" }}>
+          <label>
+            1st Shot Bet
+            <input
+              aria-label="1st Shot Bet"
+              type="number"
+              min={1}
+              step={1}
+              value={firstShotBetInput}
+              onChange={(e) => setFirstShotBetInput(e.target.value)}
+              style={{ display: "block", marginTop: "0.25rem", width: "100%" }}
+              disabled={betsLocked}
+            />
+          </label>
+          <label>
+            5 Shot Side Bet (optional)
+            <input
+              aria-label="5 Shot Side Bet"
+              type="number"
+              min={0}
+              step={1}
+              value={fiveShotBetInput}
+              onChange={(e) => setFiveShotBetInput(e.target.value)}
+              style={{ display: "block", marginTop: "0.25rem", width: "100%" }}
+              disabled={betsLocked}
+            />
+          </label>
+        </div>
+      </section>
+
       <section aria-label="Cards and results" className="game-panel game-table">
         <h2 className="sr-only">Cards &amp; Results</h2>
 
@@ -261,37 +301,6 @@ export function GameLayout() {
               {error}
             </p>
           )}
-        </div>
-      </section>
-      <section aria-label="Bet configuration" className="game-panel">
-        <h2>Bets</h2>
-        <div style={{ display: "grid", gap: "0.75rem" }}>
-          <label>
-            1st Shot Bet
-            <input
-              aria-label="1st Shot Bet"
-              type="number"
-              min={1}
-              step={1}
-              value={firstShotBetInput}
-              onChange={(e) => setFirstShotBetInput(e.target.value)}
-              style={{ display: "block", marginTop: "0.25rem", width: "100%" }}
-              disabled={betsLocked}
-            />
-          </label>
-          <label>
-            5 Shot Side Bet (optional)
-            <input
-              aria-label="5 Shot Side Bet"
-              type="number"
-              min={0}
-              step={1}
-              value={fiveShotBetInput}
-              onChange={(e) => setFiveShotBetInput(e.target.value)}
-              style={{ display: "block", marginTop: "0.25rem", width: "100%" }}
-              disabled={betsLocked}
-            />
-          </label>
         </div>
       </section>
     </main>
