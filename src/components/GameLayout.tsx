@@ -157,7 +157,13 @@ export function GameLayout() {
           {/* Top: community cards (3 Shot) */}
           <div className="game-table-community">
             {currentCards && hasResult ? (
-              <CardRow cards={currentCards.communityCards} />
+              <CardRow
+                cards={[
+                  currentCards.communityCards[2],
+                  currentCards.communityCards[1],
+                  currentCards.communityCards[0],
+                ]}
+              />
             ) : (
               <CardRow cards={[]} hiddenCount={3} />
             )}
