@@ -52,7 +52,8 @@ describe("game engine - single round", () => {
 
     const expectedTotalWinnings = 10 * 50 + 20 + 20 + 5 * 500;
     expect(result.totalWinnings).toBe(expectedTotalWinnings);
-    expect(result.totalNet).toBe(expectedTotalWinnings - result.totalBet);
+    // All shots won, so no losing wagers. Net equals total winnings.
+    expect(result.totalNet).toBe(expectedTotalWinnings);
   });
 
   it("handles a fold: 1st Shot lost, 5 Shot still resolves", () => {
@@ -92,7 +93,8 @@ describe("game engine - single round", () => {
     const expectedTotalWinnings = 5 * 500;
     expect(result.totalBet).toBe(expectedTotalBet);
     expect(result.totalWinnings).toBe(expectedTotalWinnings);
-    expect(result.totalNet).toBe(expectedTotalWinnings - expectedTotalBet);
+    // 1st Shot wager (10) is lost on fold; 5 Shot wins. Net = 2500 - 10.
+    expect(result.totalNet).toBe(expectedTotalWinnings - 10);
   });
 
   it("handles a round with no 5 Shot bet", () => {
@@ -125,6 +127,39 @@ describe("game engine - single round", () => {
     expect(result.totalBet).toBe(expectedTotalBet);
   });
 
+  it("correctly computes net when some shots win and some lose (bug regression)", () => {
+    // Reproduces the scenario from the bug report:
+    //   1st Shot: HIGH_CARD  — Wager 10, Win 0  (loss)
+    //   2nd Shot: PAIR       — Wager 10, Win 10 (1:1)
+    //   3rd Shot: FLUSH      — Wager 10, Win 20 (2:1)
+    //   5 Shot:   PAIR T+    — Wager  5, Win  5 (1:1)
+    // totalBet=35, totalWinnings=35, but net should be +25 (not 0).
+    const holeCards: [Card, Card] = [
+      c(Rank.King, Suit.Diamonds),
+      c(Rank.Five, Suit.Diamonds),
+    ];
+    // c1=6♣ → 1st Shot (K♦,5♦,6♣) = HIGH_CARD
+    // c2=K♥ → 2nd Shot (K♦,5♦,K♥) = PAIR
+    // c3=3♦ → 3rd Shot (K♦,5♦,3♦) = FLUSH
+    // 5 Shot (K♦,5♦,6♣,K♥,3♦)   = PAIR_TENS_OR_BETTER
+    const communityCards: [Card, Card, Card] = [
+      c(Rank.Six, Suit.Clubs),
+      c(Rank.King, Suit.Hearts),
+      c(Rank.Three, Suit.Diamonds),
+    ];
+
+    const result = playRound({
+      firstShotBet: 10,
+      fiveShotBet: 5,
+      decision: "raise",
+      preDealt: { holeCards, communityCards },
+    });
+
+    expect(result.totalBet).toBe(35);
+    expect(result.totalWinnings).toBe(35); // 0 + 10 + 20 + 5
+    // Net must be +25, not 0: losing wager (10) is deducted, not all bets.
+    expect(result.totalNet).toBe(25);
+  });
   it("rejects invalid firstShotBet and fiveShotBet values", () => {
     const holeCards: [Card, Card] = [
       c(Rank.Ace, Suit.Spades),
