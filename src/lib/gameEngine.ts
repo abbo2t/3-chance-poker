@@ -71,7 +71,7 @@ export interface RoundResult {
   fiveShot: FiveShotResult | null;
   totalBet: number;
   totalWinnings: number; // sum of to-one winnings
-  totalNet: number; // totalWinnings - totalBet
+  totalNet: number; // profits from winning bets minus wagers lost on losing bets
 }
 
 function getThreeCardPayoutMultiplier(
@@ -197,7 +197,14 @@ function computeRoundFromCards(
   const totalBet = firstWager + secondWager + thirdWager + fiveShotBet;
   const totalWinnings =
     firstWinnings + secondWinnings + thirdWinnings + fiveWinnings;
-  const totalNet = totalWinnings - totalBet;
+  // Net = profits from winning bets minus wagers lost on losing bets.
+  // Winning wagers are returned to the player and do not reduce the net.
+  const totalLosingWagers =
+    (firstMultiplier === 0 ? firstWager : 0) +
+    (secondMultiplier === 0 ? secondWager : 0) +
+    (thirdMultiplier === 0 ? thirdWager : 0) +
+    (fiveMultiplier === 0 ? fiveShotBet : 0);
+  const totalNet = totalWinnings - totalLosingWagers;
 
   return {
     decision,
