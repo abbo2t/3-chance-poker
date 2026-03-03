@@ -138,6 +138,17 @@ describe("GameLayout betting flow", () => {
 });
 
 describe("GameLayout balance management", () => {
+  it("decreases the balance immediately after dealing", () => {
+    render(<GameLayout />);
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
+
+    // Default 1st Shot bet is 10, default 5 Shot bet is 5.
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+
+    // Balance should decrease by 10 + 5 = 15 immediately.
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 185");
+  });
+
   it("resets balance to 200 when it would reach zero or below", async () => {
     const gameEngine = await import("../src/lib/gameEngine");
     vi.mocked(gameEngine.resolveRoundFromCards).mockReturnValueOnce({
