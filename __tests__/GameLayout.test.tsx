@@ -137,6 +137,130 @@ describe("GameLayout betting flow", () => {
   });
 });
 
+describe("GameLayout playing surface indicators", () => {
+  it("shows no special circle styles in the betting phase", () => {
+    const { container } = render(<GameLayout />);
+    const markers = container.querySelectorAll(".shot-marker");
+    markers.forEach((marker) => {
+      expect((marker as HTMLElement).style.borderColor).toBe("");
+    });
+  });
+
+  it("highlights circle 1 with a white border after dealing", () => {
+    const { container } = render(<GameLayout />);
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    const markers = container.querySelectorAll(".shot-marker");
+    // markers are rendered 3, 2, 1 — last one is circle 1
+    const circle1 = markers[2] as HTMLElement;
+    const circle2 = markers[1] as HTMLElement;
+    const circle3 = markers[0] as HTMLElement;
+    expect(circle1.style.borderColor).toBe("white");
+    expect(circle2.style.borderColor).toBe("");
+    expect(circle3.style.borderColor).toBe("");
+  });
+
+  it("fills the 5-shot badge gold after dealing when a 5-shot bet is placed", () => {
+    const { container } = render(<GameLayout />);
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    const badge = container.querySelector(".five-shot-badge") as HTMLElement;
+    expect(badge.style.background).toBe("rgb(251, 191, 36)");
+  });
+
+  it("does not change 5-shot badge style after dealing when no 5-shot bet is placed", () => {
+    const { container } = render(<GameLayout />);
+    fireEvent.change(screen.getByLabelText(/5 shot side bet/i), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    const badge = container.querySelector(".five-shot-badge") as HTMLElement;
+    expect(badge.style.background).toBe("");
+  });
+
+  it("shows total bet amount right after deal", () => {
+    render(<GameLayout />);
+    // defaults: 1st Shot = 10, 5 Shot = 5; call total = 10*3 + 5 = 35
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    expect(screen.getByText("Total Bet: 35")).toBeInTheDocument();
+  });
+
+  it("fills all three circles with win/loss colors after calling", async () => {
+    const gameEngine = await import("../src/lib/gameEngine");
+    vi.mocked(gameEngine.resolveRoundFromCards).mockReturnValueOnce({
+      decision: "raise",
+      holeCards: [{ rank: 14, suit: "S" }, { rank: 13, suit: "S" }] as never,
+      communityCards: [{ rank: 12, suit: "S" }, { rank: 2, suit: "D" }, { rank: 3, suit: "H" }] as never,
+      firstShot: { hand: [] as never, evaluation: { rank: "PAIR" } as never, wager: 10, payoutMultiplier: 1, winnings: 10 },
+      secondShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 10, payoutMultiplier: 0, winnings: 0 },
+      thirdShot: { hand: [] as never, evaluation: { rank: "FLUSH" } as never, wager: 10, payoutMultiplier: 4, winnings: 40 },
+      fiveShot: { hand: [] as never, evaluation: { rank: "ALL_OTHER" } as never, wager: 5, payoutMultiplier: 0, winnings: 0 },
+      totalBet: 35,
+      totalWinnings: 50,
+      totalNet: 25,
+    });
+
+    const { container } = render(<GameLayout />);
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+
+    const markers = container.querySelectorAll(".shot-marker");
+    const circle1 = markers[2] as HTMLElement;
+    const circle2 = markers[1] as HTMLElement;
+    const circle3 = markers[0] as HTMLElement;
+    // circle1 = firstShot (PAIR = win = green), circle2 = secondShot (HIGH_CARD = loss = red), circle3 = thirdShot (FLUSH = win = green)
+    expect(circle1.style.background).toBe("rgb(74, 222, 128)");
+    expect(circle2.style.background).toBe("rgb(249, 115, 115)");
+    expect(circle3.style.background).toBe("rgb(74, 222, 128)");
+    expect(circle1.style.borderColor).toBe("white");
+    expect(circle2.style.borderColor).toBe("white");
+    expect(circle3.style.borderColor).toBe("white");
+  });
+
+  it("only fills circle 1 with a result color after folding; circles 2 and 3 stay unstyled", async () => {
+    const gameEngine = await import("../src/lib/gameEngine");
+    vi.mocked(gameEngine.resolveRoundFromCards).mockReturnValueOnce({
+      decision: "fold",
+      holeCards: [{ rank: 14, suit: "S" }, { rank: 13, suit: "S" }] as never,
+      communityCards: [{ rank: 12, suit: "S" }, { rank: 2, suit: "D" }, { rank: 3, suit: "H" }] as never,
+      firstShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 10, payoutMultiplier: 0, winnings: 0 },
+      secondShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 0, payoutMultiplier: 0, winnings: 0 },
+      thirdShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 0, payoutMultiplier: 0, winnings: 0 },
+      fiveShot: null,
+      totalBet: 10,
+      totalWinnings: 0,
+      totalNet: -10,
+    });
+
+    const { container } = render(<GameLayout />);
+    fireEvent.change(screen.getByLabelText(/5 shot side bet/i), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /fold/i }));
+
+    const markers = container.querySelectorAll(".shot-marker");
+    const circle1 = markers[2] as HTMLElement;
+    const circle2 = markers[1] as HTMLElement;
+    const circle3 = markers[0] as HTMLElement;
+    expect(circle1.style.background).toBe("rgb(249, 115, 115)");
+    expect(circle1.style.borderColor).toBe("white");
+    expect(circle2.style.background).toBe("");
+    expect(circle2.style.borderColor).toBe("");
+    expect(circle3.style.background).toBe("");
+    expect(circle3.style.borderColor).toBe("");
+  });
+
+  it("resets circle styles to default after clearing bets", () => {
+    const { container } = render(<GameLayout />);
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    fireEvent.click(screen.getByRole("button", { name: /clear bets/i }));
+
+    const markers = container.querySelectorAll(".shot-marker");
+    markers.forEach((marker) => {
+      expect((marker as HTMLElement).style.borderColor).toBe("");
+      expect((marker as HTMLElement).style.background).toBe("");
+    });
+    const badge = container.querySelector(".five-shot-badge") as HTMLElement;
+    expect(badge.style.background).toBe("");
+  });
+});
+
 describe("GameLayout balance management", () => {
   it("decreases the balance immediately after dealing", () => {
     render(<GameLayout />);
