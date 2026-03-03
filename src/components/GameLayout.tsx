@@ -75,12 +75,52 @@ export function GameLayout() {
   const hasResult = phase === "resolved" && roundResult !== null;
   const dealButtonLabel = betsLocked ? "Re-bet Deal" : "Deal";
 
+  const fiveShotHasBet = parsedFiveShotBet > 0;
+
   function threeCardRankColor(rank: string): string {
     return rank === "HIGH_CARD" ? LOSING_COLOR : WINNING_COLOR;
   }
 
   function fiveCardRankColor(rank: string): string {
     return rank === "ALL_OTHER" ? LOSING_COLOR : WINNING_COLOR;
+  }
+
+  function getShotMarkerStyle(shotNumber: 1 | 2 | 3): React.CSSProperties {
+    if (phase === "decision" && shotNumber === 1) {
+      return { borderColor: "white" };
+    }
+    if (phase === "resolved" && roundResult) {
+      if (roundResult.decision === "fold" && shotNumber !== 1) return {};
+      const shot =
+        shotNumber === 1
+          ? roundResult.firstShot
+          : shotNumber === 2
+            ? roundResult.secondShot
+            : roundResult.thirdShot;
+      return {
+        borderColor: "white",
+        background: shot.payoutMultiplier > 0 ? WINNING_COLOR : LOSING_COLOR,
+      };
+    }
+    return {};
+  }
+
+  function getFiveShotBadgeStyle(): React.CSSProperties {
+    if (!fiveShotHasBet) return {};
+    if (phase === "decision") return { background: "#fbbf24" };
+    if (phase === "resolved" && roundResult?.fiveShot) {
+      const color =
+        roundResult.fiveShot.payoutMultiplier > 0 ? WINNING_COLOR : LOSING_COLOR;
+      return { background: color, borderColor: color };
+    }
+    return {};
+  }
+
+  function getFiveShotTextStyle(): React.CSSProperties {
+    if (!fiveShotHasBet) return {};
+    if (phase === "decision") return { color: "black" };
+    if (phase === "resolved" && roundResult?.fiveShot) return { color: "black" };
+    return {};
   }
 
   function handleRebetDeal() {
@@ -193,13 +233,13 @@ export function GameLayout() {
 
           {/* Middle: 5 Shot badge and shot markers */}
           <div className="game-table-center">
-            <div className="five-shot-badge" aria-label="5 Shot">
-              <span className="five-shot-text">5 Shot</span>
+            <div className="five-shot-badge" aria-label="5 Shot" style={getFiveShotBadgeStyle()}>
+              <span className="five-shot-text" style={getFiveShotTextStyle()}>5 Shot</span>
             </div>
             <div className="shot-markers" aria-hidden="true">
-              <div className="shot-marker">3</div>
-              <div className="shot-marker">2</div>
-              <div className="shot-marker">1</div>
+              <div className="shot-marker" style={getShotMarkerStyle(3)}>3</div>
+              <div className="shot-marker" style={getShotMarkerStyle(2)}>2</div>
+              <div className="shot-marker" style={getShotMarkerStyle(1)}>1</div>
             </div>
           </div>
 
@@ -319,6 +359,13 @@ export function GameLayout() {
                   <li style={{ color: WINNING_COLOR }}>Total Winnings: {roundResult.totalWinnings}</li>
                   <li style={{ color: LOSING_COLOR }}>Total Losses: {roundResult.totalWinnings - roundResult.totalNet}</li>
                   <li>Net: {roundResult.totalNet}</li>
+                </ul>
+              ) : phase === "decision" ? (
+                <ul className="game-totals-list">
+                  <li>Total Bet: {parsedFirstShotBet * 3 + parsedFiveShotBet}</li>
+                  <li>Total Winnings: [amount]</li>
+                  <li>Total Losses: [amount]</li>
+                  <li>Net: [amount]</li>
                 </ul>
               ) : (
                 <ul className="game-totals-list">
