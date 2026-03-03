@@ -51,7 +51,7 @@ const LOSING_COLOR = "#f97373";
 
 export function GameLayout() {
   const [phase, setPhase] = useState<Phase>("betting");
-  const [firstShotBetInput, setFirstShotBetInput] = useState("5");
+  const [firstShotBetInput, setFirstShotBetInput] = useState("10");
   const [fiveShotBetInput, setFiveShotBetInput] = useState("5");
   const [error, setError] = useState<string | null>(null);
   const [betsLocked, setBetsLocked] = useState(false);
@@ -100,6 +100,9 @@ export function GameLayout() {
     setCurrentCards(cards);
     setBetsLocked(true);
     setPhase("decision");
+    // Deduct the wagers placed at deal time; resolveRound adds back this amount
+    // so the final net effect equals result.totalNet.
+    setPlayerBalance((prev) => prev - parsedFirstShotBet - parsedFiveShotBet);
   }
 
   function resolveRound(decision: "raise" | "fold") {
@@ -117,7 +120,7 @@ export function GameLayout() {
       setRoundResult(result);
       setPhase("resolved");
       setPlayerBalance((prev) => {
-        const updated = prev + result.totalNet;
+        const updated = prev + result.totalNet + parsedFirstShotBet + parsedFiveShotBet;
         return updated <= 0 ? STARTING_BALANCE : updated;
       });
     } catch (e) {
