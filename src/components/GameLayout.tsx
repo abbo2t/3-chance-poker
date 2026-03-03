@@ -203,6 +203,59 @@ export function GameLayout() {
           </div>
         </div>
 
+        {/* Bottom action bar, similar to the physical felt layout */}
+        <div className="game-table-actions">
+          {canChooseDecision ? (
+            <>
+              <button
+                type="button"
+                onClick={() => resolveRound("raise")}
+                className="game-table-button game-table-button-primary"
+              >
+                Call
+              </button>
+              <button
+                type="button"
+                onClick={() => resolveRound("fold")}
+                className="game-table-button game-table-button-secondary"
+              >
+                Fold
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleRebetDeal}
+                disabled={!canRebetDeal}
+                className="game-table-button game-table-button-primary"
+              >
+                {dealButtonLabel}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBetsLocked(false);
+                  setPhase("betting");
+                  setCurrentCards(null);
+                  setRoundResult(null);
+                  setError(null);
+                }}
+                disabled={!betsLocked}
+                className="game-table-button game-table-button-secondary"
+              >
+                Clear Bets
+              </button>
+            </>
+          )}
+
+          {error && (
+            <p className="game-table-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+
         {/* Right side / lower area: textual results */}
         <div className="game-table-info">
           <div className="game-table-info-column">
@@ -260,59 +313,6 @@ export function GameLayout() {
               )}
             </div>
           </div>
-        </div>
-
-        {/* Bottom action bar, similar to the physical felt layout */}
-        <div className="game-table-actions">
-          {canChooseDecision ? (
-            <>
-              <button
-                type="button"
-                onClick={() => resolveRound("raise")}
-                className="game-table-button game-table-button-primary"
-              >
-                Call
-              </button>
-              <button
-                type="button"
-                onClick={() => resolveRound("fold")}
-                className="game-table-button game-table-button-secondary"
-              >
-                Fold
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={handleRebetDeal}
-                disabled={!canRebetDeal}
-                className="game-table-button game-table-button-primary"
-              >
-                {dealButtonLabel}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setBetsLocked(false);
-                  setPhase("betting");
-                  setCurrentCards(null);
-                  setRoundResult(null);
-                  setError(null);
-                }}
-                disabled={!betsLocked}
-                className="game-table-button game-table-button-secondary"
-              >
-                Clear Bets
-              </button>
-            </>
-          )}
-
-          {error && (
-            <p className="game-table-error" role="alert">
-              {error}
-            </p>
-          )}
         </div>
       </section>
     </main>
