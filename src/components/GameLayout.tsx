@@ -46,6 +46,8 @@ function formatCards(cards: Card[]): string {
 }
 
 const STARTING_BALANCE = 200;
+const WINNING_COLOR = "#4ade80";
+const LOSING_COLOR = "#f97373";
 
 export function GameLayout() {
   const [phase, setPhase] = useState<Phase>("betting");
@@ -72,6 +74,14 @@ export function GameLayout() {
   const canChooseDecision = phase === "decision";
   const hasResult = phase === "resolved" && roundResult !== null;
   const dealButtonLabel = betsLocked ? "Re-bet Deal" : "Deal";
+
+  function threeCardRankColor(rank: string): string {
+    return rank === "HIGH_CARD" ? LOSING_COLOR : WINNING_COLOR;
+  }
+
+  function fiveCardRankColor(rank: string): string {
+    return rank === "ALL_OTHER" ? LOSING_COLOR : WINNING_COLOR;
+  }
 
   function handleRebetDeal() {
     setError(null);
@@ -124,9 +134,6 @@ export function GameLayout() {
         <p style={{ maxWidth: "40rem" }}>
           Configure your bets, then play rounds of 3 Shot Poker using the
           Grand Sierra pay tables.
-        </p>
-        <p aria-label="Player balance">
-          Balance: <strong>{playerBalance}</strong>
         </p>
       </header>
 
@@ -203,6 +210,11 @@ export function GameLayout() {
           </div>
         </div>
 
+        {/* Balance display just above action buttons */}
+        <p aria-label="Player balance" style={{ textAlign: "center", margin: "1rem 0 0" }}>
+          Balance: <strong>{playerBalance}</strong>
+        </p>
+
         {/* Bottom action bar, similar to the physical felt layout */}
         <div className="game-table-actions">
           {canChooseDecision ? (
@@ -263,16 +275,16 @@ export function GameLayout() {
             {hasResult ? (
               <ul>
                 <li>
-                  1st Shot: {roundResult.firstShot.evaluation.rank} — Wager {" "}
+                  1st Shot: <span style={{ color: threeCardRankColor(roundResult.firstShot.evaluation.rank) }}>{roundResult.firstShot.evaluation.rank}</span> — Wager {" "}
                   {roundResult.firstShot.wager}, Win {roundResult.firstShot.winnings}
                 </li>
                 <li>
-                  2nd Shot: {roundResult.secondShot.evaluation.rank} — Wager {" "}
+                  2nd Shot: <span style={{ color: threeCardRankColor(roundResult.secondShot.evaluation.rank) }}>{roundResult.secondShot.evaluation.rank}</span> — Wager {" "}
                   {roundResult.secondShot.wager}, Win {" "}
                   {roundResult.secondShot.winnings}
                 </li>
                 <li>
-                  3rd Shot: {roundResult.thirdShot.evaluation.rank} — Wager {" "}
+                  3rd Shot: <span style={{ color: threeCardRankColor(roundResult.thirdShot.evaluation.rank) }}>{roundResult.thirdShot.evaluation.rank}</span> — Wager {" "}
                   {roundResult.thirdShot.wager}, Win {" "}
                   {roundResult.thirdShot.winnings}
                 </li>
@@ -289,7 +301,7 @@ export function GameLayout() {
             <h3>5 Shot Result</h3>
             {hasResult && roundResult.fiveShot ? (
               <div>
-                Rank {roundResult.fiveShot.evaluation.rank} — Wager {" "}
+                <span style={{ color: fiveCardRankColor(roundResult.fiveShot.evaluation.rank) }}>{roundResult.fiveShot.evaluation.rank}</span> — Wager {" "}
                 {roundResult.fiveShot.wager}, Win {roundResult.fiveShot.winnings}
               </div>
             ) : (
@@ -301,13 +313,15 @@ export function GameLayout() {
               {hasResult ? (
                 <ul className="game-totals-list">
                   <li>Total Bet: {roundResult.totalBet}</li>
-                  <li>Total Winnings: {roundResult.totalWinnings}</li>
+                  <li style={{ color: WINNING_COLOR }}>Total Winnings: {roundResult.totalWinnings}</li>
+                  <li style={{ color: LOSING_COLOR }}>Total Losses: {roundResult.totalWinnings - roundResult.totalNet}</li>
                   <li>Net: {roundResult.totalNet}</li>
                 </ul>
               ) : (
                 <ul className="game-totals-list">
                   <li>Total Bet: [amount]</li>
                   <li>Total Winnings: [amount]</li>
+                  <li>Total Losses: [amount]</li>
                   <li>Net: [amount]</li>
                 </ul>
               )}
