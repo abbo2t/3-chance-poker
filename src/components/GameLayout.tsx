@@ -316,28 +316,28 @@ export function GameLayout() {
           <div className="game-table-info-column">
             <h3>Shot Hands</h3>
             {hasResult ? (
-              <ul>
+              <ol className="shot-hands-list">
                 <li>
-                  1st Shot: <span style={{ color: threeCardRankColor(roundResult.firstShot.evaluation.rank) }}>{roundResult.firstShot.evaluation.rank}</span> — Wager {" "}
+                  <span style={{ color: threeCardRankColor(roundResult.firstShot.evaluation.rank) }}>{roundResult.firstShot.evaluation.rank}</span> — Bet {" "}
                   {roundResult.firstShot.wager}, Win {roundResult.firstShot.winnings}
                 </li>
                 <li>
-                  2nd Shot: <span style={{ color: threeCardRankColor(roundResult.secondShot.evaluation.rank) }}>{roundResult.secondShot.evaluation.rank}</span> — Wager {" "}
+                  <span style={{ color: threeCardRankColor(roundResult.secondShot.evaluation.rank) }}>{roundResult.secondShot.evaluation.rank}</span> — Bet {" "}
                   {roundResult.secondShot.wager}, Win {" "}
                   {roundResult.secondShot.winnings}
                 </li>
                 <li>
-                  3rd Shot: <span style={{ color: threeCardRankColor(roundResult.thirdShot.evaluation.rank) }}>{roundResult.thirdShot.evaluation.rank}</span> — Wager {" "}
+                  <span style={{ color: threeCardRankColor(roundResult.thirdShot.evaluation.rank) }}>{roundResult.thirdShot.evaluation.rank}</span> — Bet {" "}
                   {roundResult.thirdShot.wager}, Win {" "}
                   {roundResult.thirdShot.winnings}
                 </li>
-              </ul>
+              </ol>
             ) : (
-              <ul>
-                <li>1st Shot: [cards &amp; result]</li>
-                <li>2nd Shot: [cards &amp; result]</li>
-                <li>3rd Shot: [cards &amp; result]</li>
-              </ul>
+              <ol className="shot-hands-list">
+                <li>[cards &amp; result]</li>
+                <li>[cards &amp; result]</li>
+                <li>[cards &amp; result]</li>
+              </ol>
             )}
           </div>
           <div className="game-table-info-column">
