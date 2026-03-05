@@ -228,6 +228,11 @@ body {
   margin-top: 0;
 }
 
+.shot-hands-list {
+  padding-left: 1.25rem;
+  margin: 0;
+}
+
 .game-table-actions {
   margin-top: 1.5rem;
   display: flex;
