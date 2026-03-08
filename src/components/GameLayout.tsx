@@ -17,16 +17,16 @@ type AnimSpeed = "slow" | "medium" | "fast";
 
 /** Time (ms) between animation steps. */
 const ANIM_STEP_MS: Record<AnimSpeed, number> = {
-  slow: 1200,
-  medium: 700,
-  fast: 350,
+  slow: 2400,
+  medium: 1700,
+  fast: 1200,
 };
 
 /** Duration of the card-movement CSS animation (≈60 % of the step time). */
 const CARD_ANIM_MS: Record<AnimSpeed, number> = {
-  slow: 700,
-  medium: 420,
-  fast: 210,
+  slow: 1400,
+  medium: 1000,
+  fast: 700,
 };
 
 const ANIM_STEP_ORDER: AnimStep[] = ["shot1", "shot2", "shot3", "fiveshot"];
@@ -107,9 +107,9 @@ export function GameLayout() {
 
     function nextAnimStep(current: AnimStep): AnimStep | null {
       const hasFiveShot = parsedFiveShotBet > 0;
-      if (roundResult!.decision === "fold") {
-        return current === "shot1" && hasFiveShot ? "fiveshot" : null;
-      }
+      // Fold only animates the fiveshot step (if a 5-shot bet was placed);
+      // it always starts there, so nothing follows it.
+      if (roundResult!.decision === "fold") return null;
       if (current === "shot1") return "shot2";
       if (current === "shot2") return "shot3";
       if (current === "shot3") return hasFiveShot ? "fiveshot" : null;
@@ -258,8 +258,19 @@ export function GameLayout() {
       });
 
       if (animationsEnabled) {
-        setPhase("animating");
-        setAnimStep("shot1");
+        if (decision === "fold") {
+          // Don't show the 3-card shot1 animation when folding — jump straight
+          // to the fiveshot step (if a side bet was placed) or skip entirely.
+          if (parsedFiveShotBet > 0) {
+            setPhase("animating");
+            setAnimStep("fiveshot");
+          } else {
+            setPhase("resolved");
+          }
+        } else {
+          setPhase("animating");
+          setAnimStep("shot1");
+        }
       } else {
         setPhase("resolved");
       }
@@ -403,13 +414,22 @@ export function GameLayout() {
           {/* Bottom: player hole cards */}
           <div className="game-table-hole">
             {currentCards ? (
-              /* During the fiveshot animation step show all 5 cards here */
-              isAnimating && animStep === "fiveshot" ? (
-                <div className="game-table-fiveshot-anim" style={cardAnimStyle}>
+              /* Show all 5 cards during the fiveshot animation step or in the
+                 resolved phase when a 5-shot side bet was placed. */
+              (isAnimating && animStep === "fiveshot") ||
+              (hasResult && (roundResult?.fiveShot?.wager ?? 0) > 0) ? (
+                <div
+                  className="game-table-fiveshot-anim"
+                  style={isAnimating ? cardAnimStyle : undefined}
+                >
                   {currentCards.holeCards.map((card, i) => (
-                    <div key={`fiveshot-hole-${i}`} className="anim-deal-up">
-                      <PlayingCard card={card} />
-                    </div>
+                    isAnimating ? (
+                      <div key={`fiveshot-hole-${i}`} className="anim-deal-up">
+                        <PlayingCard card={card} />
+                      </div>
+                    ) : (
+                      <PlayingCard key={`fiveshot-hole-${i}`} card={card} />
+                    )
                   ))}
                   {([0, 1, 2] as const).map((ci) => (
                     <PlayingCard
