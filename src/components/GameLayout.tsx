@@ -94,7 +94,7 @@ export function GameLayout() {
   );
 
   const isAnimating = phase === "animating";
-  const canRebetDeal = (phase === "betting" || phase === "resolved") && !isAnimating;
+  const canRebetDeal = phase === "betting" || phase === "resolved";
   const canChooseDecision = phase === "decision";
   const hasResult = phase === "resolved" && roundResult !== null;
   const dealButtonLabel = betsLocked ? "Re-bet Deal" : "Deal";
@@ -271,6 +271,8 @@ export function GameLayout() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   const cardAnimDuration = CARD_ANIM_MS[animSpeed];
+  // CSS custom properties are not in React.CSSProperties by default;
+  // the cast is the standard pattern for passing them as inline styles.
   const cardAnimStyle = {
     "--card-anim-duration": `${cardAnimDuration}ms`,
   } as React.CSSProperties;
@@ -504,26 +506,35 @@ export function GameLayout() {
             <h3>Shot Hands</h3>
             {(hasResult || isAnimating) && roundResult ? (
               <ol className="shot-hands-list">
-                {isShotStepReached("shot1") && (
-                  <li key="shot1-result" className={isAnimating && animStep === "shot1" ? "result-fade-in" : undefined} style={isAnimating && animStep === "shot1" ? cardAnimStyle : undefined}>
-                    <span style={{ color: threeCardRankColor(roundResult.firstShot.evaluation.rank) }}>{roundResult.firstShot.evaluation.rank}</span> — Bet{" "}
-                    {roundResult.firstShot.wager}, Win {roundResult.firstShot.winnings}
-                  </li>
-                )}
-                {isShotStepReached("shot2") && (
-                  <li key="shot2-result" className={isAnimating && animStep === "shot2" ? "result-fade-in" : undefined} style={isAnimating && animStep === "shot2" ? cardAnimStyle : undefined}>
-                    <span style={{ color: threeCardRankColor(roundResult.secondShot.evaluation.rank) }}>{roundResult.secondShot.evaluation.rank}</span> — Bet{" "}
-                    {roundResult.secondShot.wager}, Win{" "}
-                    {roundResult.secondShot.winnings}
-                  </li>
-                )}
-                {isShotStepReached("shot3") && (
-                  <li key="shot3-result" className={isAnimating && animStep === "shot3" ? "result-fade-in" : undefined} style={isAnimating && animStep === "shot3" ? cardAnimStyle : undefined}>
-                    <span style={{ color: threeCardRankColor(roundResult.thirdShot.evaluation.rank) }}>{roundResult.thirdShot.evaluation.rank}</span> — Bet{" "}
-                    {roundResult.thirdShot.wager}, Win{" "}
-                    {roundResult.thirdShot.winnings}
-                  </li>
-                )}
+                {isShotStepReached("shot1") && (() => {
+                  const entering = isAnimating && animStep === "shot1";
+                  return (
+                    <li key="shot1-result" className={entering ? "result-fade-in" : undefined} style={entering ? cardAnimStyle : undefined}>
+                      <span style={{ color: threeCardRankColor(roundResult.firstShot.evaluation.rank) }}>{roundResult.firstShot.evaluation.rank}</span> — Bet{" "}
+                      {roundResult.firstShot.wager}, Win {roundResult.firstShot.winnings}
+                    </li>
+                  );
+                })()}
+                {isShotStepReached("shot2") && (() => {
+                  const entering = isAnimating && animStep === "shot2";
+                  return (
+                    <li key="shot2-result" className={entering ? "result-fade-in" : undefined} style={entering ? cardAnimStyle : undefined}>
+                      <span style={{ color: threeCardRankColor(roundResult.secondShot.evaluation.rank) }}>{roundResult.secondShot.evaluation.rank}</span> — Bet{" "}
+                      {roundResult.secondShot.wager}, Win{" "}
+                      {roundResult.secondShot.winnings}
+                    </li>
+                  );
+                })()}
+                {isShotStepReached("shot3") && (() => {
+                  const entering = isAnimating && animStep === "shot3";
+                  return (
+                    <li key="shot3-result" className={entering ? "result-fade-in" : undefined} style={entering ? cardAnimStyle : undefined}>
+                      <span style={{ color: threeCardRankColor(roundResult.thirdShot.evaluation.rank) }}>{roundResult.thirdShot.evaluation.rank}</span> — Bet{" "}
+                      {roundResult.thirdShot.wager}, Win{" "}
+                      {roundResult.thirdShot.winnings}
+                    </li>
+                  );
+                })()}
                 {!isShotStepReached("shot1") && <li>[cards &amp; result]</li>}
                 {!isShotStepReached("shot2") && <li>[cards &amp; result]</li>}
                 {!isShotStepReached("shot3") && <li>[cards &amp; result]</li>}
@@ -539,10 +550,15 @@ export function GameLayout() {
           <div className="game-table-info-column">
             <h3>5 Shot Result</h3>
             {(hasResult || (isAnimating && animStep === "fiveshot")) && roundResult?.fiveShot ? (
-              <div className={isAnimating && animStep === "fiveshot" ? "result-fade-in" : undefined} style={isAnimating && animStep === "fiveshot" ? cardAnimStyle : undefined}>
-                <span style={{ color: fiveCardRankColor(roundResult.fiveShot.evaluation.rank) }}>{roundResult.fiveShot.evaluation.rank}</span> — Wager{" "}
-                {roundResult.fiveShot.wager}, Win {roundResult.fiveShot.winnings}
-              </div>
+              (() => {
+                const entering = isAnimating && animStep === "fiveshot";
+                return (
+                  <div className={entering ? "result-fade-in" : undefined} style={entering ? cardAnimStyle : undefined}>
+                    <span style={{ color: fiveCardRankColor(roundResult.fiveShot.evaluation.rank) }}>{roundResult.fiveShot.evaluation.rank}</span> — Wager{" "}
+                    {roundResult.fiveShot.wager}, Win {roundResult.fiveShot.winnings}
+                  </div>
+                );
+              })()
             ) : (
               <div>[5-card hand &amp; payout]</div>
             )}
