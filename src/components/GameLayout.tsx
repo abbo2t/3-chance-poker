@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   dealRound,
   resolveRoundFromCards,
@@ -11,7 +11,25 @@ import type { Card } from "../lib/pokerTypes";
 import { CardRow, PlayingCard } from "./Card";
 import { PullToRefresh } from "./PullToRefresh";
 
-type Phase = "betting" | "decision" | "resolved";
+type Phase = "betting" | "decision" | "animating" | "resolved";
+type AnimStep = "shot1" | "shot2" | "shot3" | "fiveshot";
+type AnimSpeed = "slow" | "medium" | "fast";
+
+/** Time (ms) between animation steps. */
+const ANIM_STEP_MS: Record<AnimSpeed, number> = {
+  slow: 1200,
+  medium: 700,
+  fast: 350,
+};
+
+/** Duration of the card-movement CSS animation (≈60 % of the step time). */
+const CARD_ANIM_MS: Record<AnimSpeed, number> = {
+  slow: 700,
+  medium: 420,
+  fast: 210,
+};
+
+const ANIM_STEP_ORDER: AnimStep[] = ["shot1", "shot2", "shot3", "fiveshot"];
 
 function formatCard(card: Card): string {
   const rankMap: Record<number, string> = {
@@ -61,6 +79,11 @@ export function GameLayout() {
   const [roundResult, setRoundResult] = useState<RoundResult | null>(null);
   const [playerBalance, setPlayerBalance] = useState(STARTING_BALANCE);
 
+  // Animation settings
+  const [animationsEnabled, setAnimationsEnabled] = useState(true);
+  const [animSpeed, setAnimSpeed] = useState<AnimSpeed>("medium");
+  const [animStep, setAnimStep] = useState<AnimStep | null>(null);
+
   const parsedFirstShotBet = useMemo(
     () => Number.parseInt(firstShotBetInput, 10) || 0,
     [firstShotBetInput],
@@ -70,12 +93,74 @@ export function GameLayout() {
     [fiveShotBetInput],
   );
 
-  const canRebetDeal = phase === "betting" || phase === "resolved";
+  const isAnimating = phase === "animating";
+  const canRebetDeal = (phase === "betting" || phase === "resolved") && !isAnimating;
   const canChooseDecision = phase === "decision";
   const hasResult = phase === "resolved" && roundResult !== null;
   const dealButtonLabel = betsLocked ? "Re-bet Deal" : "Deal";
 
   const fiveShotHasBet = parsedFiveShotBet > 0;
+
+  // ── Animation advancement ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isAnimating || animStep === null || !roundResult) return;
+
+    function nextAnimStep(current: AnimStep): AnimStep | null {
+      const hasFiveShot = parsedFiveShotBet > 0;
+      if (roundResult!.decision === "fold") {
+        return current === "shot1" && hasFiveShot ? "fiveshot" : null;
+      }
+      if (current === "shot1") return "shot2";
+      if (current === "shot2") return "shot3";
+      if (current === "shot3") return hasFiveShot ? "fiveshot" : null;
+      return null;
+    }
+
+    const timer = setTimeout(() => {
+      const next = nextAnimStep(animStep);
+      if (next !== null) {
+        setAnimStep(next);
+      } else {
+        setAnimStep(null);
+        setPhase("resolved");
+      }
+    }, ANIM_STEP_MS[animSpeed]);
+
+    return () => clearTimeout(timer);
+  }, [isAnimating, animStep, animSpeed, roundResult, parsedFiveShotBet]);
+
+  // ── Display helpers ──────────────────────────────────────────────────────
+  /** True once the given shot step has been reached (or we're fully resolved). */
+  function isShotStepReached(target: AnimStep): boolean {
+    if (hasResult) return true;
+    if (!isAnimating || animStep === null) return false;
+    return ANIM_STEP_ORDER.indexOf(animStep) >= ANIM_STEP_ORDER.indexOf(target);
+  }
+
+  /**
+   * During animation, which community card (by index into communityCards[])
+   * is currently being "played down" to the hole cards?
+   */
+  function getActiveCommCardIdx(): number | null {
+    if (!isAnimating || animStep === null) return null;
+    if (animStep === "shot1") return 0;
+    if (animStep === "shot2") return 1;
+    if (animStep === "shot3") return 2;
+    return null; // "fiveshot" — hole cards are moving, not a community card
+  }
+
+  /**
+   * Whether community card at `cardIdx` should be shown face-up.
+   * Community[0] = shot1 card (rightmost display), [1] = shot2, [2] = shot3.
+   */
+  function isCommCardFaceUp(cardIdx: number): boolean {
+    if (hasResult) return true;
+    if (!isAnimating || animStep === null) return false;
+    if (cardIdx === 0) return isShotStepReached("shot1");
+    if (cardIdx === 1) return isShotStepReached("shot2");
+    if (cardIdx === 2) return isShotStepReached("shot3");
+    return false;
+  }
 
   function threeCardRankColor(rank: string): string {
     return rank === "HIGH_CARD" ? LOSING_COLOR : WINNING_COLOR;
@@ -89,7 +174,7 @@ export function GameLayout() {
     if (phase === "decision" && shotNumber === 1) {
       return { borderColor: "white" };
     }
-    if (phase === "resolved" && roundResult) {
+    if ((phase === "resolved" || isAnimating) && roundResult) {
       if (roundResult.decision === "fold" && shotNumber !== 1) return {};
       const shot =
         shotNumber === 1
@@ -97,6 +182,13 @@ export function GameLayout() {
           : shotNumber === 2
             ? roundResult.secondShot
             : roundResult.thirdShot;
+
+      // During animation, only light up markers for already-revealed shots
+      if (isAnimating) {
+        const targetStep = `shot${shotNumber}` as AnimStep;
+        if (!isShotStepReached(targetStep)) return {};
+      }
+
       return {
         borderColor: "white",
         background: shot.payoutMultiplier > 0 ? WINNING_COLOR : LOSING_COLOR,
@@ -108,24 +200,28 @@ export function GameLayout() {
   function getFiveShotBadgeStyle(): React.CSSProperties {
     if (!fiveShotHasBet) return {};
     if (phase === "decision") return { background: "#fbbf24" };
-    if (phase === "resolved" && roundResult?.fiveShot) {
+    if ((phase === "resolved" || isAnimating) && roundResult?.fiveShot) {
       const color =
         roundResult.fiveShot.payoutMultiplier > 0 ? WINNING_COLOR : LOSING_COLOR;
+      if (isAnimating && animStep !== "fiveshot") return { background: "#fbbf24" };
       return { background: color, borderColor: color };
     }
+    if (isAnimating && fiveShotHasBet) return { background: "#fbbf24" };
     return {};
   }
 
   function getFiveShotTextStyle(): React.CSSProperties {
     if (!fiveShotHasBet) return {};
     if (phase === "decision") return { color: "black" };
-    if (phase === "resolved" && roundResult?.fiveShot) return { color: "black" };
+    if ((phase === "resolved" || isAnimating) && roundResult?.fiveShot) return { color: "black" };
     return {};
   }
 
+  // ── Action handlers ──────────────────────────────────────────────────────
   function handleRebetDeal() {
     setError(null);
     setRoundResult(null);
+    setAnimStep(null);
 
     if (parsedFirstShotBet <= 0) {
       setError("1st Shot bet must be at least 1.");
@@ -140,8 +236,6 @@ export function GameLayout() {
     setCurrentCards(cards);
     setBetsLocked(true);
     setPhase("decision");
-    // Deduct the wagers placed at deal time; resolveRound adds back this amount
-    // so the final net effect equals result.totalNet.
     setPlayerBalance((prev) => prev - parsedFirstShotBet - parsedFiveShotBet);
   }
 
@@ -158,16 +252,30 @@ export function GameLayout() {
         decision,
       });
       setRoundResult(result);
-      setPhase("resolved");
       setPlayerBalance((prev) => {
         const updated = prev + result.totalNet + parsedFirstShotBet + parsedFiveShotBet;
         return updated <= 0 ? STARTING_BALANCE : updated;
       });
+
+      if (animationsEnabled) {
+        setPhase("animating");
+        setAnimStep("shot1");
+      } else {
+        setPhase("resolved");
+      }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
       setError(message);
     }
   }
+
+  // ── Render ───────────────────────────────────────────────────────────────
+  const cardAnimDuration = CARD_ANIM_MS[animSpeed];
+  const cardAnimStyle = {
+    "--card-anim-duration": `${cardAnimDuration}ms`,
+  } as React.CSSProperties;
+
+  const activeCommCardIdx = getActiveCommCardIdx();
 
   return (
     <main className="game-layout">
@@ -210,6 +318,41 @@ export function GameLayout() {
             />
           </label>
         </div>
+
+        {/* Animation settings */}
+        <div style={{ marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid rgba(148,163,184,0.2)" }}>
+          <h3 style={{ margin: "0 0 0.5rem" }}>Animation</h3>
+          <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              aria-label="Animate results"
+              checked={animationsEnabled}
+              onChange={(e) => setAnimationsEnabled(e.target.checked)}
+            />
+            Animate results
+          </label>
+          {animationsEnabled && (
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
+              Speed
+              <select
+                aria-label="Animation speed"
+                value={animSpeed}
+                onChange={(e) => setAnimSpeed(e.target.value as AnimSpeed)}
+                style={{
+                  background: "#020617",
+                  border: "1px solid rgba(148,163,184,0.7)",
+                  borderRadius: "0.35rem",
+                  color: "#e5e7eb",
+                  padding: "0.2rem 0.4rem",
+                }}
+              >
+                <option value="slow">Slow</option>
+                <option value="medium">Medium</option>
+                <option value="fast">Fast</option>
+              </select>
+            </label>
+          )}
+        </div>
       </section>
 
       <section aria-label="Cards and results" className="game-panel game-table">
@@ -218,14 +361,26 @@ export function GameLayout() {
         <div className="game-table-board">
           {/* Top: community cards (3 Shot) */}
           <div className="game-table-community">
-            {currentCards && hasResult ? (
-              <CardRow
-                cards={[
-                  currentCards.communityCards[2],
-                  currentCards.communityCards[1],
-                  currentCards.communityCards[0],
-                ]}
-              />
+            {currentCards && (hasResult || isAnimating) ? (
+              /* During animation or resolved: show each card face-up/down based on what's been revealed */
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                {/* Display order: community[2] (left), community[1] (middle), community[0] (right) */}
+                {([2, 1, 0] as const).map((cardIdx) => {
+                  const faceUp = isCommCardFaceUp(cardIdx);
+                  return faceUp ? (
+                    <PlayingCard
+                      key={`comm-${cardIdx}`}
+                      card={currentCards.communityCards[cardIdx]}
+                    />
+                  ) : (
+                    <PlayingCard
+                      key={`comm-hidden-${cardIdx}`}
+                      card={currentCards.communityCards[cardIdx]}
+                      hidden
+                    />
+                  );
+                })}
+              </div>
             ) : (
               <CardRow cards={[]} hiddenCount={3} />
             )}
@@ -246,7 +401,38 @@ export function GameLayout() {
           {/* Bottom: player hole cards */}
           <div className="game-table-hole">
             {currentCards ? (
-              <CardRow cards={currentCards.holeCards} />
+              /* During the fiveshot animation step show all 5 cards here */
+              isAnimating && animStep === "fiveshot" ? (
+                <div className="game-table-fiveshot-anim" style={cardAnimStyle}>
+                  {currentCards.holeCards.map((card, i) => (
+                    <div key={`fiveshot-hole-${i}`} className="anim-deal-up">
+                      <PlayingCard card={card} />
+                    </div>
+                  ))}
+                  {([0, 1, 2] as const).map((ci) => (
+                    <PlayingCard
+                      key={`fiveshot-comm-${ci}`}
+                      card={currentCards.communityCards[ci]}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* Shots 1-3 animation or normal: show hole cards, append active community card */
+                <div className="game-table-active-hand" style={isAnimating && activeCommCardIdx !== null ? cardAnimStyle : undefined}>
+                  <PlayingCard key="hole-0" card={currentCards.holeCards[0]} />
+                  <PlayingCard key="hole-1" card={currentCards.holeCards[1]} />
+                  {isAnimating && activeCommCardIdx !== null && (
+                    <div
+                      key={`active-comm-${animStep}`}
+                      className="anim-deal-down"
+                    >
+                      <PlayingCard
+                        card={currentCards.communityCards[activeCommCardIdx]}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
             ) : (
               <CardRow cards={[]} hiddenCount={2} />
             )}
@@ -258,7 +444,7 @@ export function GameLayout() {
           Balance: <strong>{playerBalance}</strong>
         </p>
 
-        {/* Bottom action bar, similar to the physical felt layout */}
+        {/* Bottom action bar */}
         <div className="game-table-actions">
           {canChooseDecision ? (
             <>
@@ -294,9 +480,10 @@ export function GameLayout() {
                   setPhase("betting");
                   setCurrentCards(null);
                   setRoundResult(null);
+                  setAnimStep(null);
                   setError(null);
                 }}
-                disabled={!betsLocked}
+                disabled={!betsLocked || isAnimating}
                 className="game-table-button game-table-button-secondary"
               >
                 Clear Bets
@@ -315,22 +502,31 @@ export function GameLayout() {
         <div className="game-table-info">
           <div className="game-table-info-column">
             <h3>Shot Hands</h3>
-            {hasResult ? (
+            {(hasResult || isAnimating) && roundResult ? (
               <ol className="shot-hands-list">
-                <li>
-                  <span style={{ color: threeCardRankColor(roundResult.firstShot.evaluation.rank) }}>{roundResult.firstShot.evaluation.rank}</span> — Bet {" "}
-                  {roundResult.firstShot.wager}, Win {roundResult.firstShot.winnings}
-                </li>
-                <li>
-                  <span style={{ color: threeCardRankColor(roundResult.secondShot.evaluation.rank) }}>{roundResult.secondShot.evaluation.rank}</span> — Bet {" "}
-                  {roundResult.secondShot.wager}, Win {" "}
-                  {roundResult.secondShot.winnings}
-                </li>
-                <li>
-                  <span style={{ color: threeCardRankColor(roundResult.thirdShot.evaluation.rank) }}>{roundResult.thirdShot.evaluation.rank}</span> — Bet {" "}
-                  {roundResult.thirdShot.wager}, Win {" "}
-                  {roundResult.thirdShot.winnings}
-                </li>
+                {isShotStepReached("shot1") && (
+                  <li key="shot1-result" className={isAnimating && animStep === "shot1" ? "result-fade-in" : undefined} style={isAnimating && animStep === "shot1" ? cardAnimStyle : undefined}>
+                    <span style={{ color: threeCardRankColor(roundResult.firstShot.evaluation.rank) }}>{roundResult.firstShot.evaluation.rank}</span> — Bet{" "}
+                    {roundResult.firstShot.wager}, Win {roundResult.firstShot.winnings}
+                  </li>
+                )}
+                {isShotStepReached("shot2") && (
+                  <li key="shot2-result" className={isAnimating && animStep === "shot2" ? "result-fade-in" : undefined} style={isAnimating && animStep === "shot2" ? cardAnimStyle : undefined}>
+                    <span style={{ color: threeCardRankColor(roundResult.secondShot.evaluation.rank) }}>{roundResult.secondShot.evaluation.rank}</span> — Bet{" "}
+                    {roundResult.secondShot.wager}, Win{" "}
+                    {roundResult.secondShot.winnings}
+                  </li>
+                )}
+                {isShotStepReached("shot3") && (
+                  <li key="shot3-result" className={isAnimating && animStep === "shot3" ? "result-fade-in" : undefined} style={isAnimating && animStep === "shot3" ? cardAnimStyle : undefined}>
+                    <span style={{ color: threeCardRankColor(roundResult.thirdShot.evaluation.rank) }}>{roundResult.thirdShot.evaluation.rank}</span> — Bet{" "}
+                    {roundResult.thirdShot.wager}, Win{" "}
+                    {roundResult.thirdShot.winnings}
+                  </li>
+                )}
+                {!isShotStepReached("shot1") && <li>[cards &amp; result]</li>}
+                {!isShotStepReached("shot2") && <li>[cards &amp; result]</li>}
+                {!isShotStepReached("shot3") && <li>[cards &amp; result]</li>}
               </ol>
             ) : (
               <ol className="shot-hands-list">
@@ -342,9 +538,9 @@ export function GameLayout() {
           </div>
           <div className="game-table-info-column">
             <h3>5 Shot Result</h3>
-            {hasResult && roundResult.fiveShot ? (
-              <div>
-                <span style={{ color: fiveCardRankColor(roundResult.fiveShot.evaluation.rank) }}>{roundResult.fiveShot.evaluation.rank}</span> — Wager {" "}
+            {(hasResult || (isAnimating && animStep === "fiveshot")) && roundResult?.fiveShot ? (
+              <div className={isAnimating && animStep === "fiveshot" ? "result-fade-in" : undefined} style={isAnimating && animStep === "fiveshot" ? cardAnimStyle : undefined}>
+                <span style={{ color: fiveCardRankColor(roundResult.fiveShot.evaluation.rank) }}>{roundResult.fiveShot.evaluation.rank}</span> — Wager{" "}
                 {roundResult.fiveShot.wager}, Win {roundResult.fiveShot.winnings}
               </div>
             ) : (
@@ -382,3 +578,4 @@ export function GameLayout() {
     </main>
   );
 }
+
