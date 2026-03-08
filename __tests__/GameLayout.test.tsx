@@ -1,6 +1,6 @@
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
-import { vi } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
+import { vi, beforeEach, afterEach } from "vitest";
 import { GameLayout } from "../src/components/GameLayout";
 
 vi.mock("../src/lib/gameEngine", async (importOriginal) => {
@@ -12,18 +12,33 @@ vi.mock("../src/lib/gameEngine", async (importOriginal) => {
   };
 });
 
+/** Helper: advance all pending timers so animation completes synchronously. */
+async function skipAnimation() {
+  // Each iteration fires the pending timer, then waits for React to flush
+  // state updates (which triggers the next useEffect → next timer).
+  // 5 iterations cover the maximum animation chain: shot1→shot2→shot3→fiveshot→resolved.
+  for (let i = 0; i < 5; i++) {
+    await act(async () => {
+      vi.runAllTimers();
+    });
+  }
+}
+
 describe("GameLayout betting flow", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
   it("displays the starting balance of 200", () => {
     render(<GameLayout />);
     expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
   });
 
-  it("updates the balance after a resolved round", () => {
+  it("updates the balance after a resolved round", async () => {
     render(<GameLayout />);
     expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
 
     fireEvent.click(screen.getByRole("button", { name: /deal/i }));
     fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    await skipAnimation();
 
     // After resolution the balance should still be displayed as a number.
     const balanceText = screen.getByLabelText(/player balance/i).textContent ?? "";
@@ -71,7 +86,7 @@ describe("GameLayout betting flow", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("updates the deal button label between Bet & Deal and Re-bet & Deal", () => {
+  it("updates the deal button label between Bet & Deal and Re-bet & Deal", async () => {
     render(<GameLayout />);
 
     // Initially, bets are not locked, so we show "Deal".
@@ -86,6 +101,7 @@ describe("GameLayout betting flow", () => {
     fireEvent.click(initialDealButton);
     const callButton = screen.getByRole("button", { name: /call/i });
     fireEvent.click(callButton);
+    await skipAnimation();
 
     // After resolution, bets are locked and the label switches to "Re-bet Deal".
     const rebetDealButton = screen.getByRole("button", {
@@ -138,6 +154,8 @@ describe("GameLayout betting flow", () => {
 });
 
 describe("GameLayout playing surface indicators", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
   it("shows no special circle styles in the betting phase", () => {
     const { container } = render(<GameLayout />);
     const markers = container.querySelectorAll(".shot-marker");
@@ -199,6 +217,7 @@ describe("GameLayout playing surface indicators", () => {
     const { container } = render(<GameLayout />);
     fireEvent.click(screen.getByRole("button", { name: /deal/i }));
     fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    await skipAnimation();
 
     const markers = container.querySelectorAll(".shot-marker");
     const circle1 = markers[2] as HTMLElement;
@@ -232,6 +251,7 @@ describe("GameLayout playing surface indicators", () => {
     fireEvent.change(screen.getByLabelText(/5 shot side bet/i), { target: { value: "0" } });
     fireEvent.click(screen.getByRole("button", { name: /deal/i }));
     fireEvent.click(screen.getByRole("button", { name: /fold/i }));
+    await skipAnimation();
 
     const markers = container.querySelectorAll(".shot-marker");
     const circle1 = markers[2] as HTMLElement;
@@ -245,10 +265,11 @@ describe("GameLayout playing surface indicators", () => {
     expect(circle3.style.borderColor).toBe("");
   });
 
-  it("resets circle styles to default after clearing bets", () => {
+  it("resets circle styles to default after clearing bets", async () => {
     const { container } = render(<GameLayout />);
     fireEvent.click(screen.getByRole("button", { name: /deal/i }));
     fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    await skipAnimation();
     fireEvent.click(screen.getByRole("button", { name: /clear bets/i }));
 
     const markers = container.querySelectorAll(".shot-marker");
@@ -262,6 +283,8 @@ describe("GameLayout playing surface indicators", () => {
 });
 
 describe("GameLayout balance management", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
   it("decreases the balance immediately after dealing", () => {
     render(<GameLayout />);
     expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
@@ -293,8 +316,117 @@ describe("GameLayout balance management", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /deal/i }));
     fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    await skipAnimation();
 
     // Balance would reach 0, so it should reset to 200.
     expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
+  });
+});
+
+describe("GameLayout animation settings", () => {
+  it("renders the animate-results checkbox checked by default", () => {
+    render(<GameLayout />);
+    const checkbox = screen.getByLabelText(/animate results/i) as HTMLInputElement;
+    expect(checkbox).toBeInTheDocument();
+    expect(checkbox.checked).toBe(true);
+  });
+
+  it("renders the animation speed selector when animations are enabled", () => {
+    render(<GameLayout />);
+    expect(screen.getByLabelText(/animation speed/i)).toBeInTheDocument();
+  });
+
+  it("hides the speed selector when animations are disabled", () => {
+    render(<GameLayout />);
+    fireEvent.click(screen.getByLabelText(/animate results/i));
+    expect(screen.queryByLabelText(/animation speed/i)).not.toBeInTheDocument();
+  });
+
+  it("speed selector has Slow, Medium, and Fast options", () => {
+    render(<GameLayout />);
+    const select = screen.getByLabelText(/animation speed/i);
+    expect(select).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /slow/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /medium/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /fast/i })).toBeInTheDocument();
+  });
+});
+
+describe("GameLayout animation sequence", () => {
+  beforeEach(() => { vi.useFakeTimers(); });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("enters animating phase (shows only shot1 result) immediately after clicking Call", async () => {
+    render(<GameLayout />);
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+
+    // At this point animation has just started — shot1 result should be visible,
+    // but shots 2 and 3 are placeholder text until their steps are reached.
+    // We expect the list still has placeholder items for future shots.
+    const listItems = document.querySelectorAll(".shot-hands-list li");
+    expect(listItems).toHaveLength(3);
+    // At least one placeholder should be present at the start of the animation.
+    const hasPlaceholder = Array.from(listItems).some(
+      (li) => li.textContent?.includes("[cards & result]"),
+    );
+    expect(hasPlaceholder).toBe(true);
+  });
+
+  it("shows all three shot results once animation completes (with animations enabled)", async () => {
+    render(<GameLayout />);
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    await skipAnimation();
+
+    // All three shot results should now be present and none should be placeholders.
+    const listItems = document.querySelectorAll(".shot-hands-list li");
+    expect(listItems).toHaveLength(3);
+    listItems.forEach((li) => {
+      expect(li.textContent).not.toContain("[cards & result]");
+    });
+  });
+
+  it("shows results immediately when animations are disabled", () => {
+    render(<GameLayout />);
+    // Disable animations
+    fireEvent.click(screen.getByLabelText(/animate results/i));
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+
+    // No timer advancement needed — phase should jump directly to resolved.
+    const listItems = document.querySelectorAll(".shot-hands-list li");
+    expect(listItems).toHaveLength(3);
+    listItems.forEach((li) => {
+      expect(li.textContent).not.toContain("[cards & result]");
+    });
+  });
+
+  it("Call and Fold buttons disappear during animation", async () => {
+    render(<GameLayout />);
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+
+    // Immediately after clicking Call, we are animating — deal/clear buttons are
+    // rendered again (not call/fold), and Deal is disabled.
+    const dealButton = screen.getByRole("button", { name: /re-bet deal/i });
+    expect(dealButton).toBeDisabled();
+
+    await skipAnimation();
+
+    // After animation, Deal is enabled again.
+    expect(screen.getByRole("button", { name: /re-bet deal/i })).toBeEnabled();
+  });
+
+  it("Clear Bets is disabled during animation and re-enabled afterwards", async () => {
+    render(<GameLayout />);
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+
+    expect(screen.getByRole("button", { name: /clear bets/i })).toBeDisabled();
+
+    await skipAnimation();
+
+    expect(screen.getByRole("button", { name: /clear bets/i })).toBeEnabled();
   });
 });

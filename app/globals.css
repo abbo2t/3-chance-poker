@@ -124,6 +124,53 @@ body {
   }
 }
 
+/* Animation wrappers — override the default card-enter on children */
+.anim-deal-down > .playing-card {
+  animation: card-deal-down var(--card-anim-duration, 420ms) ease-out forwards;
+}
+
+.anim-deal-up > .playing-card {
+  animation: card-deal-up var(--card-anim-duration, 420ms) ease-out forwards;
+}
+
+@keyframes card-deal-down {
+  from {
+    opacity: 0;
+    transform: translateY(-80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-deal-up {
+  from {
+    opacity: 0;
+    transform: translateY(80px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Result row that fades in when a shot is revealed */
+@keyframes result-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.result-fade-in {
+  animation: result-fade-in var(--card-anim-duration, 420ms) ease-out forwards;
+}
+
 @media (max-width: 768px) {
   .game-layout {
     grid-template-columns: minmax(0, 1fr);
@@ -281,6 +328,23 @@ body {
   margin: 0.25rem 0 0;
   color: #f97373;
   font-size: 0.85rem;
+}
+
+/* Active 3-card hand shown during shot animation (community card joins hole cards) */
+.game-table-active-hand {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 5-card spread shown during the 5-shot animation step */
+.game-table-fiveshot-anim {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 /* Pull-to-refresh indicator */
