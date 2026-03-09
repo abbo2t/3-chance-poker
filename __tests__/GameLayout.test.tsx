@@ -429,4 +429,62 @@ describe("GameLayout animation sequence", () => {
 
     expect(screen.getByRole("button", { name: /clear bets/i })).toBeEnabled();
   });
+
+  it("folding with no 5-shot bet skips animation and goes directly to resolved", async () => {
+    const { container } = render(<GameLayout />);
+    fireEvent.change(screen.getByLabelText(/5 shot side bet/i), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /fold/i }));
+
+    // Without any timer advancement, Deal button should already be enabled (resolved phase).
+    expect(screen.getByRole("button", { name: /re-bet deal/i })).toBeEnabled();
+    // Shot 1 result should be visible (not a placeholder) immediately.
+    const listItems = container.querySelectorAll(".shot-hands-list li");
+    expect(listItems).toHaveLength(3);
+    expect(listItems[2].textContent).not.toContain("[cards & result]");
+  });
+
+  it("folding with a 5-shot bet plays the fiveshot animation (not shot1 first)", async () => {
+    const { container } = render(<GameLayout />);
+    // 5-shot bet is already set to 5 by default
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /fold/i }));
+
+    // Immediately after folding, we should be animating (Deal disabled) but
+    // the shot-hands-list shot1 entry should already be visible (fold resolves
+    // shot1 immediately without animating it).
+    const dealButton = screen.getByRole("button", { name: /re-bet deal/i });
+    expect(dealButton).toBeDisabled();
+
+    // The 5-card fiveshot layout should be showing (not the 2-card hole layout).
+    const fiveshotAnim = container.querySelector(".game-table-fiveshot-anim");
+    expect(fiveshotAnim).not.toBeNull();
+
+    await skipAnimation();
+    expect(screen.getByRole("button", { name: /re-bet deal/i })).toBeEnabled();
+  });
+
+  it("5-card display remains visible after animation completes when 5-shot bet was placed", async () => {
+    const { container } = render(<GameLayout />);
+    // 5-shot bet is already set to 5 by default
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    await skipAnimation();
+
+    // After animation ends, the 5-card layout should still be shown.
+    const fiveshotAnim = container.querySelector(".game-table-fiveshot-anim");
+    expect(fiveshotAnim).not.toBeNull();
+  });
+
+  it("hole-card-only layout is shown in resolved phase when no 5-shot bet was placed", async () => {
+    const { container } = render(<GameLayout />);
+    fireEvent.change(screen.getByLabelText(/5 shot side bet/i), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    await skipAnimation();
+
+    // No 5-shot bet → fiveshot was never animated → should NOT show 5-card layout.
+    expect(container.querySelector(".game-table-fiveshot-anim")).toBeNull();
+    expect(container.querySelector(".game-table-active-hand")).not.toBeNull();
+  });
 });
