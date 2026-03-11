@@ -194,8 +194,20 @@ describe("GameLayout playing surface indicators", () => {
 
   it("shows total bet amount right after deal", () => {
     render(<GameLayout />);
-    // defaults: 1st Shot = 10, 5 Shot = 5; call total = 10*3 + 5 = 35
+    // defaults: 1st Shot = 10, 5 Shot = 5; committed at deal = 10 + 5 = 15
     fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    expect(screen.getByText("Total Bet: 15")).toBeInTheDocument();
+  });
+
+  it("shows full raise total bet after calling", async () => {
+    render(<GameLayout />);
+    // defaults: 1st Shot = 10, 5 Shot = 5; full raise total = 10*3 + 5 = 35
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    expect(screen.getByText("Total Bet: 15")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    // During animation and after: totalBet from result should be displayed
+    await skipAnimation();
     expect(screen.getByText("Total Bet: 35")).toBeInTheDocument();
   });
 
@@ -296,29 +308,94 @@ describe("GameLayout balance management", () => {
     expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 185");
   });
 
+  it("decreases the balance by 2x firstShotBet immediately when call is clicked", () => {
+    render(<GameLayout />);
+    // Default: firstShotBet=10, fiveShotBet=5
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    // Balance after deal: 200 - 10 - 5 = 185
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 185");
+
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    // Balance after call: 185 - 2*10 = 165
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 165");
+  });
+
+  it("does not change balance when fold is clicked (additional wagers not placed)", () => {
+    render(<GameLayout />);
+    // Default: firstShotBet=10, fiveShotBet=5
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    // Balance after deal: 200 - 10 - 5 = 185
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 185");
+
+    fireEvent.click(screen.getByRole("button", { name: /fold/i }));
+    // No additional deduction for fold; balance stays at 185 while fiveshot animates.
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 185");
+  });
+
+  it("credits a winning shot's wager and winnings when its animation step completes", async () => {
+    const gameEngine = await import("../src/lib/gameEngine");
+    vi.mocked(gameEngine.resolveRoundFromCards).mockReturnValueOnce({
+      decision: "raise",
+      holeCards: [{ rank: 14, suit: "S" }, { rank: 13, suit: "S" }] as never,
+      communityCards: [{ rank: 12, suit: "S" }, { rank: 2, suit: "D" }, { rank: 3, suit: "H" }] as never,
+      firstShot: { hand: [] as never, evaluation: { rank: "PAIR" } as never, wager: 10, payoutMultiplier: 1, winnings: 10 },
+      secondShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 10, payoutMultiplier: 0, winnings: 0 },
+      thirdShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 10, payoutMultiplier: 0, winnings: 0 },
+      fiveShot: null,
+      totalBet: 30,
+      totalWinnings: 10,
+      totalNet: -20,
+    });
+
+    render(<GameLayout />);
+    fireEvent.change(screen.getByLabelText(/5 shot side bet/i), { target: { value: "0" } });
+    fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    // After deal: 200 - 10 = 190
+    fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    // After call: 190 - 20 = 170 (2x additional)
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 170");
+
+    // Advance shot1 timer: firstShot wins 1x → credit 10 (wager) + 10 (winnings) = 20
+    await act(async () => { vi.runAllTimers(); });
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 190");
+
+    // Advance shot2 timer: secondShot loses → no credit
+    await act(async () => { vi.runAllTimers(); });
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 190");
+
+    // Advance shot3 timer (last): thirdShot loses → no credit → net balance stays 190
+    await act(async () => { vi.runAllTimers(); });
+    expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 190");
+  });
+
   it("resets balance to 200 when it would reach zero or below", async () => {
     const gameEngine = await import("../src/lib/gameEngine");
     vi.mocked(gameEngine.resolveRoundFromCards).mockReturnValueOnce({
       decision: "raise",
       holeCards: [{ rank: 14, suit: "S" }, { rank: 13, suit: "S" }] as never,
       communityCards: [{ rank: 12, suit: "S" }, { rank: 2, suit: "D" }, { rank: 3, suit: "H" }] as never,
-      firstShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 5, payoutMultiplier: 0, winnings: 0 },
-      secondShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 5, payoutMultiplier: 0, winnings: 0 },
-      thirdShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 5, payoutMultiplier: 0, winnings: 0 },
+      firstShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 100, payoutMultiplier: 0, winnings: 0 },
+      secondShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 100, payoutMultiplier: 0, winnings: 0 },
+      thirdShot: { hand: [] as never, evaluation: { rank: "HIGH_CARD" } as never, wager: 100, payoutMultiplier: 0, winnings: 0 },
       fiveShot: null,
-      totalBet: 200,
+      totalBet: 300,
       totalWinnings: 0,
-      totalNet: -200,
+      totalNet: -300,
     });
 
     render(<GameLayout />);
+    // Set 1st Shot bet to 100, no 5-Shot bet
+    fireEvent.change(screen.getByLabelText(/1st shot bet/i), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText(/5 shot side bet/i), { target: { value: "0" } });
     expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
 
     fireEvent.click(screen.getByRole("button", { name: /deal/i }));
+    // After deal: 200 - 100 = 100
     fireEvent.click(screen.getByRole("button", { name: /call/i }));
+    // After call: 100 - 200 (2×100) = -100; all shots lose → balance stays -100 → reset to 200
     await skipAnimation();
 
-    // Balance would reach 0, so it should reset to 200.
+    // Balance would reach below zero, so it should reset to 200.
     expect(screen.getByLabelText(/player balance/i)).toHaveTextContent("Balance: 200");
   });
 });
@@ -329,6 +406,12 @@ describe("GameLayout animation settings", () => {
     const checkbox = screen.getByLabelText(/animate results/i) as HTMLInputElement;
     expect(checkbox).toBeInTheDocument();
     expect(checkbox.checked).toBe(true);
+  });
+
+  it("defaults animation speed to fast", () => {
+    render(<GameLayout />);
+    const select = screen.getByLabelText(/animation speed/i) as HTMLSelectElement;
+    expect(select.value).toBe("fast");
   });
 
   it("renders the animation speed selector when animations are enabled", () => {
