@@ -6,6 +6,8 @@ import {
   resolveRoundFromCards,
   type DealtRoundCards,
   type RoundResult,
+  type ShotResult,
+  type FiveShotResult,
 } from "../lib/gameEngine";
 import type { Card } from "../lib/pokerTypes";
 import { CardRow, PlayingCard } from "./Card";
@@ -67,6 +69,17 @@ const STARTING_BALANCE = 200;
 const WINNING_COLOR = "#4ade80";
 const LOSING_COLOR = "#f97373";
 
+/** Returns the balance credit for a completed animation step (wager + profit for a win, 0 for a loss). */
+function getStepReturn(step: AnimStep, result: RoundResult): number {
+  let shot: ShotResult | FiveShotResult | null = null;
+  if (step === "shot1") shot = result.firstShot;
+  else if (step === "shot2") shot = result.secondShot;
+  else if (step === "shot3") shot = result.thirdShot;
+  else if (step === "fiveshot") shot = result.fiveShot;
+  if (!shot || shot.payoutMultiplier === 0) return 0;
+  return shot.wager + shot.winnings;
+}
+
 export function GameLayout() {
   const [phase, setPhase] = useState<Phase>("betting");
   const [firstShotBetInput, setFirstShotBetInput] = useState("10");
@@ -81,7 +94,7 @@ export function GameLayout() {
 
   // Animation settings
   const [animationsEnabled, setAnimationsEnabled] = useState(true);
-  const [animSpeed, setAnimSpeed] = useState<AnimSpeed>("medium");
+  const [animSpeed, setAnimSpeed] = useState<AnimSpeed>("fast");
   const [animStep, setAnimStep] = useState<AnimStep | null>(null);
 
   const parsedFirstShotBet = useMemo(
@@ -118,6 +131,13 @@ export function GameLayout() {
 
     const timer = setTimeout(() => {
       const next = nextAnimStep(animStep);
+      const isLastStep = next === null;
+      // Credit the player for any winning bet resolved by this animation step.
+      const ret = getStepReturn(animStep, roundResult!);
+      setPlayerBalance((prev) => {
+        const updated = prev + ret;
+        return isLastStep && updated <= 0 ? STARTING_BALANCE : updated;
+      });
       if (next !== null) {
         setAnimStep(next);
       } else {
@@ -252,10 +272,11 @@ export function GameLayout() {
         decision,
       });
       setRoundResult(result);
-      setPlayerBalance((prev) => {
-        const updated = prev + result.totalNet + parsedFirstShotBet + parsedFiveShotBet;
-        return updated <= 0 ? STARTING_BALANCE : updated;
-      });
+
+      // For a raise, the 2nd and 3rd shot wagers are placed immediately.
+      if (decision === "raise") {
+        setPlayerBalance((prev) => prev - 2 * parsedFirstShotBet);
+      }
 
       if (animationsEnabled) {
         if (decision === "fold") {
@@ -265,6 +286,8 @@ export function GameLayout() {
             setPhase("animating");
             setAnimStep("fiveshot");
           } else {
+            // No animation: fold forfeits the 1st shot wager (already deducted).
+            setPlayerBalance((prev) => (prev <= 0 ? STARTING_BALANCE : prev));
             setPhase("resolved");
           }
         } else {
@@ -272,6 +295,21 @@ export function GameLayout() {
           setAnimStep("shot1");
         }
       } else {
+        // Animations disabled: credit all winning bets at once.
+        const stepsToResolve: AnimStep[] =
+          decision === "raise"
+            ? ["shot1", "shot2", "shot3", ...(parsedFiveShotBet > 0 ? (["fiveshot"] as AnimStep[]) : [])]
+            : parsedFiveShotBet > 0
+              ? ["fiveshot"]
+              : [];
+        const totalReturn = stepsToResolve.reduce(
+          (sum, step) => sum + getStepReturn(step, result),
+          0,
+        );
+        setPlayerBalance((prev) => {
+          const updated = prev + totalReturn;
+          return updated <= 0 ? STARTING_BALANCE : updated;
+        });
         setPhase("resolved");
       }
     } catch (e) {
@@ -592,9 +630,16 @@ export function GameLayout() {
                   <li style={{ color: LOSING_COLOR }}>Total Losses: {roundResult.totalWinnings - roundResult.totalNet}</li>
                   <li>Net: {roundResult.totalNet}</li>
                 </ul>
+              ) : isAnimating && roundResult ? (
+                <ul className="game-totals-list">
+                  <li>Total Bet: {roundResult.totalBet}</li>
+                  <li>Total Winnings: [amount]</li>
+                  <li>Total Losses: [amount]</li>
+                  <li>Net: [amount]</li>
+                </ul>
               ) : phase === "decision" ? (
                 <ul className="game-totals-list">
-                  <li>Total Bet: {parsedFirstShotBet * 3 + parsedFiveShotBet}</li>
+                  <li>Total Bet: {parsedFirstShotBet + parsedFiveShotBet}</li>
                   <li>Total Winnings: [amount]</li>
                   <li>Total Losses: [amount]</li>
                   <li>Net: [amount]</li>
